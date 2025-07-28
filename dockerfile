@@ -5,8 +5,8 @@ WORKDIR /src
 COPY frontend-participant ./frontend-participant
 COPY frontend-wizard     ./frontend-wizard
 
-RUN cd frontend-participant && npm ci && npm run build
-RUN cd frontend-wizard     && npm ci && npm run build
+RUN cd frontend-participant && npm install && npm run build
+RUN cd frontend-wizard     && npm install && npm run build
 
 # ── Stage 2: lightweight Python image with static files ──────────────────────
 FROM python:3.11-slim
