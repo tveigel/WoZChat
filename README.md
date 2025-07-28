@@ -11,3 +11,8 @@ cd frontend-participant && npm start   # http://localhost:3000/chat/test
 
 # wizard UI
 cd ../frontend-wizard && npm start     # http://localhost:3001/wizard
+
+
+# REnder
+
+https://wozchat.onrender.com/wizard

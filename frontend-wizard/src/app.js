@@ -1,14 +1,18 @@
-// frontend-wizard/src/app.js
+/* frontend-wizard/src/app.js */
 import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import "./app.css";
 
-const socket = io();                            // SAME ORIGIN WS
+/* ───────── configuration ───────── */
+const WS_ORIGIN  = process.env.REACT_APP_WS_ORIGIN  || "";
+const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || "";
+const FIXED_ROOM = process.env.REACT_APP_DEV_ROOM   || null;
+const socket = io(WS_ORIGIN);
 
+/* ───────── component ───────── */
 export default function App() {
-  /* room from URL or null on first load */
   const [room, setRoom] = useState(
-    window.location.pathname.split("/").pop() || null
+    FIXED_ROOM || window.location.pathname.split("/").pop() || null
   );
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
@@ -16,28 +20,35 @@ export default function App() {
   const [templates, setTemplates] = useState({});
   const bottomRef = useRef(null);
 
-  /* get / create room */
+  /* create a room once – skipped if FIXED_ROOM is present */
   useEffect(() => {
-    if (room) return;                           // already have one
-    fetch("/api/new_room", { method: "POST" })
+    if (room || FIXED_ROOM) return;
+    fetch(`${API_ORIGIN}/api/new_room`, { method: "POST" })
       .then((r) => r.json())
-      .then(({ room: id }) => {
-        window.location.pathname = `/wizard/${id}`; // full reload
-      });
+      .then(({ room: id }) =>
+        (window.location.pathname = `/wizard/${id}`)
+      );
   }, [room]);
 
-  /* socket life‑cycle */
+  /* join + handlers */
   useEffect(() => {
     if (!room) return;
     socket.emit("join", { room, type: "wizard" });
 
-    socket.on("new_message", (m) =>
-      setMessages((p) => [...p, m])
-    );
-    socket.on("participant_is_typing", ({ text }) => setTyping(text));
-    socket.on("templates", (t) => setTemplates(t));
+    const onNewMessage = (m) => setMessages((p) => [...p, m]);
+    const onTyping = ({ text }) => setTyping(text);
+    const onTemplates = (t) => setTemplates(t);
 
-    return () => socket.emit("leave", { room });
+    socket.on("new_message", onNewMessage);
+    socket.on("participant_is_typing", onTyping);
+    socket.on("templates", onTemplates);
+
+    return () => {
+      socket.emit("leave", { room });
+      socket.off("new_message", onNewMessage);
+      socket.off("participant_is_typing", onTyping);
+      socket.off("templates", onTemplates);
+    };
   }, [room]);
 
   useEffect(() => {
@@ -52,10 +63,9 @@ export default function App() {
   };
 
   const exportLog = () => {
-    const blob = new Blob(
-      [JSON.stringify(messages, null, 2)],
-      { type: "application/json" }
-    );
+    const blob = new Blob([JSON.stringify(messages, null, 2)], {
+      type: "application/json",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `chat_${room}_${Date.now()}.json`;
@@ -65,6 +75,7 @@ export default function App() {
 
   if (!room) return <p>Creating room…</p>;
 
+  /* ui */
   return (
     <div className="App">
       <div className="wizard-panel">
@@ -94,8 +105,7 @@ export default function App() {
 
           <p>
             Share with participant:&nbsp;
-            <code>{`${window.location.origin}/chat/${room}`}</code>
-            &nbsp;
+            <code>{`${window.location.origin}/chat/${room}`}</code>&nbsp;
             <button
               onClick={() =>
                 navigator.clipboard.writeText(

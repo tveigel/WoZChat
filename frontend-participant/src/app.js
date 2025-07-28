@@ -1,25 +1,32 @@
-// frontend-participant/src/app.js
+/* frontend-participant/src/app.js */
 import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import "./app.css";
 
-const socket = io();                      // <── SAME ORIGIN WS
+/* ───────── configuration ───────── */
+const socket = io(process.env.REACT_APP_WS_ORIGIN || "");
+const initialRoom =
+  process.env.REACT_APP_DEV_ROOM ||
+  window.location.pathname.split("/").pop();
 
+/* ───────── component ───────── */
 export default function App() {
-  const [room] = useState(
-    window.location.pathname.split("/").pop()
-  );                                      // /chat/<room>
+  const [room] = useState(initialRoom);
   const [messages, setMessages] = useState([]);
   const [current, setCurrent] = useState("");
   const [wizardTyping, setWizardTyping] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const bottomRef = useRef(null);
 
-  /* socket life‑cycle */
+  /* join once */
   useEffect(() => {
     socket.emit("join", { room, type: "participant" });
+    return () => socket.emit("leave", { room });
+  }, [room]);
 
-    socket.on("new_message", (msg) => {
+  /* new_message */
+  useEffect(() => {
+    function onNewMessage(msg) {
       if (msg.sender === "wizard") {
         setMessages((p) => [
           ...p.filter((m) => m.sender !== "wizard_streaming"),
@@ -28,9 +35,14 @@ export default function App() {
         setWizardTyping(false);
         setWaiting(false);
       }
-    });
+    }
+    socket.on("new_message", onNewMessage);
+    return () => socket.off("new_message", onNewMessage);
+  }, [room]);
 
-    socket.on("stream_chunk", ({ word, is_last }) => {
+  /* stream_chunk */
+  useEffect(() => {
+    function onChunk({ word, is_last }) {
       setWizardTyping(true);
       setMessages((prev) => {
         const last = prev.at(-1);
@@ -41,16 +53,16 @@ export default function App() {
         return [...prev, { sender: "wizard_streaming", text: word }];
       });
       if (is_last) setWizardTyping(false);
-    });
-
-    return () => socket.emit("leave", { room });
+    }
+    socket.on("stream_chunk", onChunk);
+    return () => socket.off("stream_chunk", onChunk);
   }, [room]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, wizardTyping]);
 
-  /* participant actions */
+  /* send */
   const send = (e) => {
     e.preventDefault();
     if (!current.trim() || waiting) return;
@@ -61,21 +73,25 @@ export default function App() {
     setWaiting(true);
   };
 
+  /* ui */
   return (
     <div className="App">
       <div className="chat-window">
         <div className="messages">
           {messages.map((m, i) => (
-            <div key={i} className={`message ${m.sender}`}>{m.text}</div>
+            <div key={i} className={`message ${m.sender}`}>
+              {m.text}
+            </div>
           ))}
           {wizardTyping && (
             <div className="message wizard typing-indicator">
-              <span /><span /><span />
+              <span />
+              <span />
+              <span />
             </div>
           )}
           <div ref={bottomRef} />
         </div>
-
         <form className="message-form" onSubmit={send}>
           <input
             value={current}
@@ -87,9 +103,7 @@ export default function App() {
               });
             }}
             disabled={waiting}
-            placeholder={
-              waiting ? "Waiting for reply…" : "Type your message…"
-            }
+            placeholder={waiting ? "Waiting for reply…" : "Type your message…"}
           />
           <button disabled={waiting}>Send</button>
         </form>
