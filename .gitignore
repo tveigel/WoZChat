@@ -41,7 +41,7 @@ yarn-error.log*
 .yarn-integrity
 
 # Package-lock files (choose one)
-package-lock.json
+
 yarn.lock
 
 # Build outputs
