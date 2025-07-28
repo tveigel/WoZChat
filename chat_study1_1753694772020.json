@@ -1,0 +1,12 @@
+[
+  {
+    "sender": "wizard",
+    "text": "Hello! How can I help you today?",
+    "timestamp": "2025-07-28T09:25:50+00:00"
+  },
+  {
+    "sender": "participant",
+    "text": "you are weird",
+    "timestamp": "2025-07-28T09:26:10+00:00"
+  }
+]

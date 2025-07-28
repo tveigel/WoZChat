@@ -1,0 +1,6 @@
+# Ignore node modules and local build artefacts
+**/node_modules
+frontend-participant/build
+frontend-wizard/build
+__pycache__
+*.pyc
