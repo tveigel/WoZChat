@@ -1,3 +1,6 @@
+**WORK IN PROGRESS**
+Building a Wizard of Oz Chatbot allowing researchers to simulate an AI Chatbots consistently and investigate participants preferences.
+
 # WebWOz – one‑click Wizard‑of‑Oz chat
 
 ## Run locally (dev)
