@@ -13,6 +13,7 @@ Built for Docker: gunicorn ‑k eventlet ‑w 1 ‑b 0.0.0.0:10000 backend
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,12 +40,44 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # room id → list[ message dict ]
 rooms: Dict[str, List[dict]] = {}
 
+# Default templates for the wizard UI.
+# This can be modified in-memory by the wizards.
 TEMPLATES = {
-    "greeting":      "Hello! How can I help you today?",
-    "understanding": "I understand. Let me look into that for you.",
-    "no_info":       "I'm sorry, I don't have information about that.",
-    "goodbye":       "Thank you for chatting with me. Goodbye!",
+    "pinned": [
+        "Hello! I am the accident report assistant. How can I help you today?",
+        "Understood. I've noted that down.",
+        "Thank you for the information. Is there anything else?",
+        "Goodbye!",
+    ],
+    "contextual": {
+        "general": [
+            "Let's start with the basics of the report.",
+            "I'm sorry, I didn't understand that. Could you please rephrase?",
+            "Can you provide more details on that?"
+        ],
+        "date_of_accident": [
+            "What was the date of the accident?",
+            "Can you please provide the date (e.g., YYYY-MM-DD) when the incident occurred?",
+        ],
+        "time_of_accident": [
+            "And at what time did it happen?",
+            "Please specify the time of the accident (e.g., 4:30 PM)."
+        ],
+        "location": [
+            "Where did the accident happen?",
+            "Please describe the location of the incident in as much detail as possible.",
+        ],
+        "description": [
+            "Please describe what happened in your own words.",
+            "Can you provide a step-by-step description of the events?"
+        ],
+        "injuries": [
+            "Were there any injuries?",
+            "Please describe any injuries sustained by the parties involved."
+        ]
+    }
 }
+
 
 # ───────────────────────────────────────────────  Helpers
 
@@ -53,7 +86,10 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def save(room: str, sender: str, text: str) -> dict:
+def save(room: str, sender: str, text) -> dict:        # text may be dict
+    if not isinstance(text, str):
+        # Pretty‑print JSON so it still looks nice in the chat
+        text = json.dumps(text, ensure_ascii=False, indent=2)
     msg = {"sender": sender, "text": text, "timestamp": utc_now()}
     rooms.setdefault(room, []).append(msg)
     return msg
@@ -118,6 +154,7 @@ def on_join(data):
     join_room(room)
     print(f"{kind} joined {room}")
     if kind == "wizard":
+        # Send the entire template structure to the wizard who just joined
         emit("templates", TEMPLATES, to=request.sid)
 
 
@@ -159,6 +196,33 @@ def on_wizard_response(data):
 
     # 3) send final full msg to participant
     emit("new_message", msg, to=room, include_self=False)
+
+
+@socketio.on("wizard_add_template")
+def on_wizard_add_template(data):
+    """
+    Adds a new template to the in-memory TEMPLATES object.
+    data = { type: "pinned" | "contextual", field?: string, text: string }
+    """
+    template_type = data.get("type")
+    text = data.get("text", "").strip()
+
+    if not text:
+        return  # Ignore empty templates
+
+    if template_type == "pinned":
+        if text not in TEMPLATES["pinned"]:
+            TEMPLATES["pinned"].append(text)
+    elif template_type == "contextual":
+        field = data.get("field")
+        if field:
+            if field not in TEMPLATES["contextual"]:
+                TEMPLATES["contextual"][field] = []
+            if text not in TEMPLATES["contextual"][field]:
+                TEMPLATES["contextual"][field].append(text)
+
+    # Broadcast the complete, updated template structure to ALL wizards
+    emit("templates", TEMPLATES, broadcast=True)
 
 
 # ───────────────────────────────────────────────  Main

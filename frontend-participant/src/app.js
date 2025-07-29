@@ -1,49 +1,56 @@
-/* frontend-participant/src/app.js */
+// frontend-participant/src/app.js
 import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import "./app.css";
 
-/* ───────── configuration ───────── */
-const socket = io(process.env.REACT_APP_WS_ORIGIN || "");
-const initialRoom =
-  process.env.REACT_APP_DEV_ROOM ||
-  window.location.pathname.split("/").pop();
+const socket = io(
+  process.env.REACT_APP_BACKEND || "http://localhost:5000",
+  { transports: ["websocket"], path: "/socket.io" });                       
 
-/* ───────── component ───────── */
+/* little marketing‑style status lines the user sees while waiting */
+const WAITING_HINTS = [
+  "Thinking…",
+  "Consulting the form wizard…",
+  "Matching your reply to the form…",
+  "Retrieving relevant information…"
+];
+
 export default function App() {
-  const [room] = useState(initialRoom);
+  /* ─────────────────────────────── state */
+  const [room] = useState(
+    window.location.pathname.split("/").pop()
+  );                                         // /chat/<room>
   const [messages, setMessages] = useState([]);
   const [current, setCurrent] = useState("");
   const [wizardTyping, setWizardTyping] = useState(false);
   const [waiting, setWaiting] = useState(false);
-  const bottomRef = useRef(null);
+  const [waitingHint, setWaitingHint] = useState(WAITING_HINTS[0]);
 
-  /* join once */
+  /* refs */
+  const bottomRef        = useRef(null);
+  const listRef          = useRef(null);
+  const autoScrollRef    = useRef(true);     // track if user is at bottom
+  const waitingTimerRef  = useRef(null);
+
+  /* ─────────────────────────────── socket life‑cycle */
   useEffect(() => {
     socket.emit("join", { room, type: "participant" });
-    return () => socket.emit("leave", { room });
-  }, [room]);
 
-  /* new_message */
-  useEffect(() => {
-    function onNewMessage(msg) {
+    socket.on("new_message", (msg) => {
       if (msg.sender === "wizard") {
-        setMessages((p) => [
-          ...p.filter((m) => m.sender !== "wizard_streaming"),
+        // replace any existing streaming message
+        setMessages((prev) => [
+          ...prev.filter((m) => m.sender !== "wizard_streaming"),
           msg,
         ]);
         setWizardTyping(false);
-        setWaiting(false);
+        stopWaitingAnimation();
       }
-    }
-    socket.on("new_message", onNewMessage);
-    return () => socket.off("new_message", onNewMessage);
-  }, [room]);
+    });
 
-  /* stream_chunk */
-  useEffect(() => {
-    function onChunk({ word, is_last }) {
+    socket.on("stream_chunk", ({ word, is_last }) => {
       setWizardTyping(true);
+      stopWaitingAnimation();                // hide “AI is processing…”
       setMessages((prev) => {
         const last = prev.at(-1);
         if (last?.sender === "wizard_streaming") {
@@ -53,45 +60,93 @@ export default function App() {
         return [...prev, { sender: "wizard_streaming", text: word }];
       });
       if (is_last) setWizardTyping(false);
-    }
-    socket.on("stream_chunk", onChunk);
-    return () => socket.off("stream_chunk", onChunk);
+    });
+
+    return () => socket.emit("leave", { room });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
 
+  /* smart autoscroll: only scroll if the user WAS at bottom */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (autoScrollRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, wizardTyping]);
 
-  /* send */
+  /* detect manual scrolls */
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const nearBottom =
+        el.scrollTop + el.clientHeight >= el.scrollHeight - 80;
+      autoScrollRef.current = nearBottom;
+    };
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  /* ─────────────────────────────── participant actions */
   const send = (e) => {
     e.preventDefault();
     if (!current.trim() || waiting) return;
+
     setMessages((p) => [...p, { sender: "participant", text: current }]);
     socket.emit("participant_message", { room, text: current });
     socket.emit("participant_typing", { room, text: "" });
     setCurrent("");
-    setWaiting(true);
+    startWaitingAnimation();
   };
 
-  /* ui */
+  /* ─────────────────────────────── waiting animation helpers */
+  const startWaitingAnimation = () => {
+    setWaiting(true);
+    setWaitingHint(WAITING_HINTS[0]);
+    let i = 1;
+    waitingTimerRef.current = setInterval(() => {
+      setWaitingHint(WAITING_HINTS[i % WAITING_HINTS.length]);
+      i += 1;
+    }, 2000);
+  };
+
+  const stopWaitingAnimation = () => {
+    if (waitingTimerRef.current) clearInterval(waitingTimerRef.current);
+    waitingTimerRef.current = null;
+    setWaiting(false);
+  };
+
+  /* ─────────────────────────────── UI */
   return (
     <div className="App">
       <div className="chat-window">
-        <div className="messages">
+        <div ref={listRef} className="messages">
           {messages.map((m, i) => (
             <div key={i} className={`message ${m.sender}`}>
-              {m.text}
+              {typeof m.text === 'object'
+                ? <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                    {JSON.stringify(m.text, null, 2)}
+                  </pre>
+                : m.text}
             </div>
           ))}
-          {wizardTyping && (
-            <div className="message wizard typing-indicator">
-              <span />
-              <span />
-              <span />
+
+          {waiting && !wizardTyping && (
+            <div className="waiting-indicator">
+              <div className="spinner" />
+              {waitingHint}
             </div>
           )}
+
+          {wizardTyping && (
+            <div className="message wizard typing-indicator">
+              <span /><span /><span />
+            </div>
+          )}
+
           <div ref={bottomRef} />
         </div>
+
+        {/* sticky input bar */}
         <form className="message-form" onSubmit={send}>
           <input
             value={current}
@@ -103,7 +158,9 @@ export default function App() {
               });
             }}
             disabled={waiting}
-            placeholder={waiting ? "Waiting for reply…" : "Type your message…"}
+            placeholder={
+              waiting ? "Waiting for reply…" : "Type your message…"
+            }
           />
           <button disabled={waiting}>Send</button>
         </form>
