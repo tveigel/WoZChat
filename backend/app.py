@@ -118,7 +118,7 @@ def _persist_and_broadcast() -> None:
     """Save TEMPLATES and push the fresh set to all connected wizards."""
     _save_templates(TEMPLATES)
     # Broadcast to every connected client (wizard UI filters internally)
-    socketio.emit("templates", TEMPLATES, broadcast=True)
+    socketio.emit("templates", TEMPLATES)
 
 
 def save(room: str, sender: str, text: str) -> dict:
@@ -323,9 +323,9 @@ def on_join(data):
     join_room(room)
     print(f"{kind} joined {room}")
     
-    # Send existing message history to the joining user
+    # Send existing message history to the joining user with room context
     if room in rooms and rooms[room]:
-        emit("message_history", {"messages": rooms[room]})
+        emit("message_history", {"messages": rooms[room], "room": room})
     
     if kind == "wizard":
         emit("templates", TEMPLATES)   # unchanged
@@ -340,10 +340,11 @@ def on_leave(data):
 
 @socketio.on("participant_typing")
 def on_participant_typing(data):
+    room = data.get("room", "default_room")
     emit(
         "participant_is_typing",
-        {"text": data.get("text", "")},
-        to=data.get("room", "default_room"),
+        {"text": data.get("text", ""), "room": room},
+        to=room,
         include_self=False,
     )
 
@@ -352,7 +353,9 @@ def on_participant_typing(data):
 def on_participant_message(data):
     room = data.get("room", "default_room")
     text = data.get("text", "")
-    emit("new_message", save(room, "participant", text), to=room)
+    msg = save(room, "participant", text)
+    msg["room"] = room  # Include room in message
+    emit("new_message", msg, to=room)
 
 
 @socketio.on("wizard_response")
@@ -360,6 +363,7 @@ def on_wizard_response(data):
     room = data.get("room", "default_room")
     text = data.get("text", "")
     msg = save(room, "wizard", text)
+    msg["room"] = room  # Include room in message
 
     # 1) show full msg immediately to the wizard only
     emit("new_message", msg)
