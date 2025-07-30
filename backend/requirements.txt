@@ -1,4 +1,5 @@
 flask
-flask_socketio[eventlet]==5.*
+flask_socketio==5.*
+eventlet>=0.36
 flask-cors
 gunicorn
