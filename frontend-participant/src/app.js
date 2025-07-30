@@ -12,7 +12,11 @@ const WAITING_HINTS = [
   "Thinking…",
   "Consulting the form wizard…",
   "Matching your reply to the form…",
-  "Retrieving relevant information…"
+  "Retrieving relevant information…",
+  "Generating a response",
+  "Just one moment…",
+  "Almost there…",
+  "Your form wizard is working hard…",
 ];
 
 export default function App() {
@@ -106,7 +110,7 @@ export default function App() {
     waitingTimerRef.current = setInterval(() => {
       setWaitingHint(WAITING_HINTS[i % WAITING_HINTS.length]);
       i += 1;
-    }, 2000);
+    }, 2500);
   };
 
   const stopWaitingAnimation = () => {
@@ -118,15 +122,25 @@ export default function App() {
   /* ─────────────────────────────── UI */
   return (
     <div className="App">
+      <div className="chat-header">
+        <h2>🧙‍♂️ Form Wizard Assistant</h2>
+        <p>I'm here to help you fill out forms by asking you questions and entering your responses accordingly. Let's get started!</p>
+      </div>
+      
       <div className="chat-window">
         <div ref={listRef} className="messages">
           {messages.map((m, i) => (
             <div key={i} className={`message ${m.sender}`}>
-              {typeof m.text === 'object'
-                ? <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                    {JSON.stringify(m.text, null, 2)}
-                  </pre>
-                : m.text}
+              {(m.sender === "wizard" || m.sender === "wizard_streaming") && (
+                <span className="wizard-emoji">🧙‍♂️</span>
+              )}
+              <div className="message-content">
+                {typeof m.text === 'object'
+                  ? <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                      {JSON.stringify(m.text, null, 2)}
+                    </pre>
+                  : m.text}
+              </div>
             </div>
           ))}
 
@@ -139,7 +153,10 @@ export default function App() {
 
           {wizardTyping && (
             <div className="message wizard typing-indicator">
-              <span /><span /><span />
+              <span className="wizard-emoji">🧙‍♂️</span>
+              <div className="typing-dots">
+                <span /><span /><span />
+              </div>
             </div>
           )}
 
