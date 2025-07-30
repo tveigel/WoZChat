@@ -176,6 +176,7 @@ export default function App() {
 
     const onMsg   = (m)        => setMessages((p) => [...p, m]);
     const onType  = ({ text }) => setTyping(text);
+    const onHistory = ({ messages }) => setMessages(messages || []);
     const onTpls  = (dict)     => {
       /* pinned */
       const pinnedCat = dict.Pinned || {};
@@ -193,11 +194,13 @@ export default function App() {
 
     socket.on("new_message", onMsg);
     socket.on("participant_is_typing", onType);
+    socket.on("message_history", onHistory);
     socket.on("templates", onTpls);
 
     return () => {
       socket.off("new_message", onMsg);
       socket.off("participant_is_typing", onType);
+      socket.off("message_history", onHistory);
       socket.off("templates", onTpls);
       socket.emit("leave", { room });
     };
@@ -299,7 +302,12 @@ export default function App() {
       <div className="wizard-panel" style={{ gridTemplateColumns: "1fr 2fr" }}>
         {/* chat column */}
         <div className="chat-area" style={{ overflowY: "auto" }}>
-          <h2>Conversation</h2>
+          <div className="header-row">
+            <h2>Conversation</h2>
+            <button onClick={exportLog} className="header-btn">
+              ⬇ Export JSON
+            </button>
+          </div>
           <div className="messages">
             {messages.map((m, i) => (
               <div key={i} className={`message ${m.sender}`}>
@@ -318,22 +326,21 @@ export default function App() {
 
         {/* control column */}
         <div className="control-area" style={{ overflowY: "auto" }}>
-          <h2>Wizard Controls</h2>
+          <div className="header-row">
+            <h2>Wizard Controls</h2>
+            <div className="header-controls">
+              <button className="setup-toggle header-btn" onClick={() => setSetupMode((p) => !p)}>
+                {setupMode ? "✅ Exit Setup" : "🛠 Setup"}
+              </button>
+              <button 
+                className="header-btn"
+                onClick={() => navigator.clipboard.writeText(`${PARTICIPANT_ORIGIN}/chat/${room}`)}
+              >
+                📋 Copy Link
+              </button>
+            </div>
+          </div>
 
-          <button onClick={exportLog} style={{ marginBottom: "15px" }}>
-            ⬇ Export conversation as JSON
-          </button>
-
-          <p>
-            Share with participant:&nbsp;
-            <code>{`${PARTICIPANT_ORIGIN}/chat/${room}`}</code>&nbsp;
-            <button onClick={() => navigator.clipboard.writeText(`${PARTICIPANT_ORIGIN}/chat/${room}`)}>Copy</button>
-          </p>
-
-          {/* setup toggle */}
-          <button className="setup-toggle" onClick={() => setSetupMode((p) => !p)}>
-            {setupMode ? "✅ Exit Setup Mode" : "🛠 Enter Setup Mode"}
-          </button>
 
           {/* pinned templates scroll wrapper */}
           <div style={{ maxHeight: "35vh", overflowY: "auto" }}>

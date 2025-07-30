@@ -40,6 +40,10 @@ export default function App() {
   useEffect(() => {
     socket.emit("join", { room, type: "participant" });
 
+    socket.on("message_history", ({ messages }) => {
+      setMessages(messages || []);
+    });
+
     socket.on("new_message", (msg) => {
       if (msg.sender === "wizard") {
         // replace any existing streaming message
@@ -110,7 +114,7 @@ export default function App() {
     waitingTimerRef.current = setInterval(() => {
       setWaitingHint(WAITING_HINTS[i % WAITING_HINTS.length]);
       i += 1;
-    }, 2500);
+    }, 2700); // change hint every 3 seconds
   };
 
   const stopWaitingAnimation = () => {

@@ -268,8 +268,13 @@ def on_join(data):
     kind = data.get("type", "unknown")
     join_room(room)
     print(f"{kind} joined {room}")
+    
+    # Send existing message history to the joining user
+    if room in rooms and rooms[room]:
+        emit("message_history", {"messages": rooms[room]})
+    
     if kind == "wizard":
-        emit("templates", TEMPLATES, to=request.sid)   # unchanged
+        emit("templates", TEMPLATES)   # unchanged
 
 
 @socketio.on("leave")
@@ -303,7 +308,7 @@ def on_wizard_response(data):
     msg = save(room, "wizard", text)
 
     # 1) show full msg immediately to the wizard only
-    emit("new_message", msg, to=request.sid)
+    emit("new_message", msg)
 
     # 2) stream to participant
     _stream_wizard_message(room, text)
