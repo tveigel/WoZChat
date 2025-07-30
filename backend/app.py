@@ -23,7 +23,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Dict, List
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
@@ -148,6 +148,12 @@ def new_room():
     return jsonify({"room": room_id})
 
 
+@app.route("/")
+def root():
+    """Redirect root URL to wizard interface"""
+    return redirect("/wizard")
+
+
 @app.route("/wizard")
 @app.route("/wizard/<room_id>")
 def wizard_app(room_id: str | None = None):
@@ -161,16 +167,40 @@ def participant_app(room_id: str):
 
 @app.route("/static/<path:filename>")
 def static_assets(filename):
-    # Handle both separated bundles and any fallback to merged assets
+    # In development, we don't serve static assets - React dev server handles this
+    # In production (Docker), serve from the copied static directories
+    
+    if not ASSETS_DIR.exists():
+        # Development mode - let React dev server handle static assets
+        from flask import abort
+        abort(404)
+    
+    # Production mode - handle separated bundles
     if filename.startswith("p/"):
-        # Participant bundle assets
+        # Participant bundle assets: /static/p/static/js/file.js -> /static/static/p/static/js/file.js
         return send_from_directory(ASSETS_DIR / "p", filename[2:])
     elif filename.startswith("w/"):
-        # Wizard bundle assets  
+        # Wizard bundle assets: /static/w/static/js/file.js -> /static/static/w/static/js/file.js  
         return send_from_directory(ASSETS_DIR / "w", filename[2:])
     else:
-        # Fallback to original location for any other assets
-        return send_from_directory(ASSETS_DIR, filename)
+        # Try wizard assets first (for production builds with PUBLIC_URL=/static/w)
+        wizard_file = ASSETS_DIR / "w" / filename
+        if wizard_file.exists():
+            return send_from_directory(ASSETS_DIR / "w", filename)
+        
+        # Try participant assets 
+        participant_file = ASSETS_DIR / "p" / filename
+        if participant_file.exists():
+            return send_from_directory(ASSETS_DIR / "p", filename)
+        
+        # Fallback to original location if it exists
+        fallback_file = ASSETS_DIR / filename
+        if fallback_file.exists():
+            return send_from_directory(ASSETS_DIR, filename)
+        
+        # File not found
+        from flask import abort
+        abort(404)
 
 
 # ─────────────────────  ↑ existing routes unchanged – NEW below  ↑
