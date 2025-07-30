@@ -4,93 +4,86 @@ import io from "socket.io-client";
 import "./app.css";
 import TemplateManager from "./TemplateManager";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+const API_ORIGIN =
+  process.env.REACT_APP_API_ORIGIN || "http://localhost:5000";
+const PARTICIPANT_ORIGIN =
+  process.env.REACT_APP_PARTICIPANT_ORIGIN || "http://localhost:3000";
 
-// Explicitly connect to the backend server for robust development
-const socket = io("http://localhost:5000");
+const socket = io("http://localhost:5000");          // explicit host for dev
 
-
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  // ───────────────────────────────────────── state
-  const [room] = useState(
-    window.location.pathname.split("/").pop() || null
-  );
+  /* ─────────── state */
+  const [room]           = useState(window.location.pathname.split("/").pop() || null);
   const [messages, setMessages] = useState([]);
-  const [draft, setDraft] = useState("");
-  const [typing, setTyping] = useState("");
+  const [draft, setDraft]       = useState("");
+  const [typing, setTyping]     = useState("");
 
-  // new ▼────────────────────────────────────
-  const [phases, setPhases] = useState([]); // [{id,name,templates:[{id,text}]}]
+  const [phases, setPhases]     = useState([]);      // [{id,name,templates:[{id,text}]}]
   const [currentPhaseId, setCurrentPhaseId] = useState(null);
-  const [setupMode, setSetupMode] = useState(false);
-  // ▲────────────────────────────────────────
+  const [setupMode, setSetupMode]           = useState(false);
 
-  const bottomRef = useRef(null);
+  const bottomRef      = useRef(null);
+  const initialLoadRef = useRef(true);               // guard to avoid persisting on first load
+  const prevDictRef    = useRef({});                 // previous template snapshot for diffing
 
-  // ───────────────────────────────────────── room bootstrap
+  /* ───────────────────────── room bootstrap */
   useEffect(() => {
     if (room) return;
-    const API_ORIGIN = process.env.REACT_APP_API_ORIGIN || "http://localhost:5000";
     fetch(`${API_ORIGIN}/api/new_room`, { method: "POST" })
       .then((r) => r.json())
       .then(({ room: id }) => {
-        window.location.pathname = `/wizard/${id}`; // hard reload
+        window.location.pathname = `/wizard/${id}`;  // hard reload
       });
   }, [room]);
 
-  // ───────────────────────────────────────── socket life‑cycle
+  /* ───────────────────────── socket life‑cycle */
   useEffect(() => {
     if (!room) return;
     socket.emit("join", { room, type: "wizard" });
 
-    socket.on("new_message", (m) => setMessages((p) => [...p, m]));
-    socket.on("participant_is_typing", ({ text }) => setTyping(text));
-    socket.on("templates", (dict) => {
-      // Handle the new nested template structure from backend
-      const allTemplates = [];
-      
-      // Add pinned templates
-      if (Array.isArray(dict.pinned)) {
-        dict.pinned.forEach((text, i) => {
-          allTemplates.push({
-            id: `pinned-${i}`,
-            text: text
-          });
-        });
-      }
-      
-      // Add contextual templates with field prefixes
-      if (dict.contextual && typeof dict.contextual === 'object') {
-        Object.entries(dict.contextual).forEach(([field, templates]) => {
-          if (Array.isArray(templates)) {
-            templates.forEach((text, i) => {
-              allTemplates.push({
-                id: `${field}-${i}`,
-                text: text
-              });
-            });
-          }
-        });
-      }
-      
-      setPhases([
-        {
-          id: "general",
-          name: "General",
-          templates: allTemplates,
-        },
-      ]);
-      setCurrentPhaseId("general");
-    });
+    const handleNewMsg  = (m)        => setMessages((p) => [...p, m]);
+    const handleTyping  = ({ text }) => setTyping(text);
+    const handleTplPush = (dict)     => {
+      /* Convert {Category: {key: text}} → phases[] */
+      const newPhases = Object.entries(dict).map(([cat, items]) => ({
+        id:   cat,
+        name: cat,
+        templates: Object.entries(items).map(([key, text]) => ({
+          id: key,
+          text,
+        })),
+      }));
+      setPhases(newPhases);
+      setCurrentPhaseId((id) => id || (newPhases[0]?.id ?? null));
 
-    return () => socket.emit("leave", { room });
+      // store snapshot for later diffing
+      prevDictRef.current = dict;
+    };
+
+    socket.on("new_message", handleNewMsg);
+    socket.on("participant_is_typing", handleTyping);
+    socket.on("templates", handleTplPush);
+
+    return () => {
+      socket.off("new_message", handleNewMsg);
+      socket.off("participant_is_typing", handleTyping);
+      socket.off("templates", handleTplPush);
+      socket.emit("leave", { room });
+    };
   }, [room]);
 
-  // ───────────────────────────────────────── scroll on new msg
+  /* ───────────────────────── autoscroll */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ───────────────────────────────────────── helpers
+  /* ───────────────────────── helpers */
   const send = (txt) => {
     if (!txt.trim()) return;
     socket.emit("wizard_response", { room, text: txt });
@@ -108,7 +101,7 @@ export default function App() {
     URL.revokeObjectURL(a.href);
   };
 
-  // ───────────────────────────────────────── phase helpers
+  /* ───────────────────────── phase helpers (UI only, unchanged) */
   const addPhase = () => {
     const name = prompt("New phase name:");
     if (!name) return;
@@ -116,13 +109,11 @@ export default function App() {
     setPhases([...phases, { id, name, templates: [] }]);
     setCurrentPhaseId(id);
   };
-
   const renamePhase = (id) => {
     const name = prompt("Rename phase:");
     if (!name) return;
     setPhases(phases.map((p) => (p.id === id ? { ...p, name } : p)));
   };
-
   const removePhase = (id) => {
     if (phases.length === 1) return;
     if (!window.confirm("Delete this phase (and its templates)?")) return;
@@ -131,24 +122,80 @@ export default function App() {
     setCurrentPhaseId(next[0].id);
   };
 
-  // ───────────────────────────────────────── UI
+  /* ───────────────────────── PERSISTENCE LOGIC */
+  // 1. helper to turn phases[] → {cat: {key: text}}
+  const phasesToDict = (arr) => {
+    const out = {};
+    arr.forEach(({ name, templates }) => {
+      const cat = name || "General";
+      out[cat] = {};
+      templates.forEach(({ id, text }) => {
+        out[cat][id] = text;
+      });
+    });
+    return out;
+  };
+
+  // 2. whenever phases change **after** initial load, diff & sync
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      // first render after socket push → don't persist
+      initialLoadRef.current = false;
+      return;
+    }
+
+    const next = phasesToDict(phases);
+    const prev = prevDictRef.current;
+
+    // --- additions & updates
+    for (const [cat, items] of Object.entries(next)) {
+      for (const [key, text] of Object.entries(items)) {
+        if (!prev[cat] || prev[cat][key] !== text) {
+          fetch(`${API_ORIGIN}/api/templates/item`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category: cat, key, value: text }),
+          }).catch(console.error);
+        }
+      }
+    }
+    // --- deletions
+    for (const [cat, items] of Object.entries(prev)) {
+      for (const key of Object.keys(items)) {
+        if (!next[cat] || !(key in next[cat])) {
+          fetch(
+            `${API_ORIGIN}/api/templates/${encodeURIComponent(
+              cat
+            )}/${encodeURIComponent(key)}`,
+            { method: "DELETE" }
+          ).catch(console.error);
+        }
+      }
+    }
+
+    prevDictRef.current = next; // update snapshot
+  }, [phases]);
+
+  /* ───────────────────────── UI */
   if (!room) return <p>Creating room…</p>;
 
   return (
     <div className="App">
       <div className="wizard-panel">
-        {/* ───────────── conversation ───────────── */}
+        {/* ───── conversation ───── */}
         <div className="chat-area">
           <h2>Conversation</h2>
           <div className="messages">
             {messages.map((m, i) => (
               <div key={i} className={`message ${m.sender}`}>
                 <div className="sender-label">{m.sender}</div>
-                {typeof m.text === 'object'
-                  ? <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                      {JSON.stringify(m.text, null, 2)}
-                    </pre>
-                  : m.text}
+                {typeof m.text === "object" ? (
+                  <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+                    {JSON.stringify(m.text, null, 2)}
+                  </pre>
+                ) : (
+                  m.text
+                )}
               </div>
             ))}
             <div ref={bottomRef} />
@@ -160,7 +207,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* ───────────── control column ───────────── */}
+        {/* ───── control column ───── */}
         <div className="control-area">
           <h2>Wizard Controls</h2>
 
@@ -170,11 +217,11 @@ export default function App() {
 
           <p>
             Share with participant:&nbsp;
-            <code>{`${process.env.REACT_APP_PARTICIPANT_ORIGIN || "http://localhost:3000"}/chat/${room}`}</code>&nbsp;
+            <code>{`${PARTICIPANT_ORIGIN}/chat/${room}`}</code>&nbsp;
             <button
               onClick={() =>
                 navigator.clipboard.writeText(
-                  `${process.env.REACT_APP_PARTICIPANT_ORIGIN || "http://localhost:3000"}/chat/${room}`
+                  `${PARTICIPANT_ORIGIN}/chat/${room}`
                 )
               }
             >
@@ -182,7 +229,7 @@ export default function App() {
             </button>
           </p>
 
-          {/* ───────────── setup toggle ───────────── */}
+          {/* setup toggle */}
           <button
             className="setup-toggle"
             onClick={() => setSetupMode((p) => !p)}
@@ -190,7 +237,7 @@ export default function App() {
             {setupMode ? "✅ Exit Setup Mode" : "🛠 Enter Setup Mode"}
           </button>
 
-          {/* ───────────── phase selector ───────────── */}
+          {/* phase selector */}
           <div className="phase-selector">
             {phases.map((p) => (
               <div
@@ -227,13 +274,17 @@ export default function App() {
               </div>
             ))}
             {setupMode && (
-              <button className="tiny-btn" onClick={addPhase} title="Add phase">
+              <button
+                className="tiny-btn"
+                onClick={addPhase}
+                title="Add phase"
+              >
                 ＋
               </button>
             )}
           </div>
 
-          {/* ───────────── templates ───────────── */}
+          {/* templates manager (unchanged UI) */}
           <TemplateManager
             phases={phases}
             setPhases={setPhases}
@@ -242,7 +293,7 @@ export default function App() {
             onSend={send}
           />
 
-          {/* ───────────── custom response ───────────── */}
+          {/* custom free‑text reply */}
           {!setupMode && (
             <div className="custom-response">
               <h3>Custom Response</h3>
