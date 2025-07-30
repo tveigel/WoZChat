@@ -9,14 +9,21 @@ import "./app.css";
 import TemplateManager from "./TemplateManager";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS (unchanged – explicit host/port avoids “Creating room…” freeze)
+// CONSTANTS - Environment-aware URLs for dev and production
 // ─────────────────────────────────────────────────────────────────────────────
-const API_ORIGIN =
-  process.env.REACT_APP_API_ORIGIN || "http://localhost:5000";
-const PARTICIPANT_ORIGIN =
-  process.env.REACT_APP_PARTICIPANT_ORIGIN || "http://localhost:3000";
+const API_ORIGIN = process.env.NODE_ENV === 'development' 
+  ? "http://localhost:5000" 
+  : "";
 
-const socket = io("http://localhost:5000");
+const socket = io(
+  process.env.NODE_ENV === 'development' 
+    ? "http://localhost:5000" 
+    : window.location.origin,
+  {
+    transports: ["websocket"],
+    path: "/socket.io"
+  }
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCAL COMPONENT – Pinned templates (same behaviour as before)
@@ -145,7 +152,9 @@ function PinnedTemplates({ templates, setTemplates, setupMode, onPick }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
   /* state */
-  const [room]    = useState(window.location.pathname.split("/").pop() || null);
+  const parts = window.location.pathname.split("/");
+  const last = parts.pop();
+  const [room] = useState((last && last !== "wizard") ? last : null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft]       = useState("");
   const [typing, setTyping]     = useState("");
@@ -334,7 +343,36 @@ export default function App() {
               </button>
               <button 
                 className="header-btn"
-                onClick={() => navigator.clipboard.writeText(`${PARTICIPANT_ORIGIN}/chat/${room}`)}
+                onClick={() => {
+                  if (!room) {
+                    alert("No room available yet!");
+                    return;
+                  }
+                  
+                  // Smart URL generation that works in both dev and production
+                  let participantUrl;
+                  if (window.location.hostname === 'localhost') {
+                    // Development: participant runs on port 3000
+                    participantUrl = `http://localhost:3000/chat/${room}`;
+                  } else {
+                    // Production: same origin
+                    participantUrl = `${window.location.origin}/chat/${room}`;
+                  }
+                  
+                  navigator.clipboard.writeText(participantUrl).then(() => {
+                    // Visual feedback
+                    const btn = document.activeElement;
+                    const originalText = btn.textContent;
+                    btn.textContent = "✅ Copied!";
+                    setTimeout(() => {
+                      btn.textContent = originalText;
+                    }, 2000);
+                  }).catch(err => {
+                    console.error('Failed to copy: ', err);
+                    // Fallback: show the URL in an alert
+                    alert(`Participant link: ${participantUrl}`);
+                  });
+                }}
               >
                 📋 Copy Link
               </button>

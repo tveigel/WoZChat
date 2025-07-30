@@ -10,12 +10,13 @@ Flask‑SocketIO back‑end that also serves the pre‑built React bundles.
 • /api/templates/<key>   → PUT/DELETE – update or remove template
 • Socket.IO WS namespace → same origin, so client just uses io()
 
-Built for Docker: gunicorn ‑k eventlet ‑w 1 ‑b 0.0.0.0:10000 backend.app:app
+Built for Docker: gunicorn ‑k eventlet ‑w 1 ‑b 0.0.0.0:10000 backend.app:app
 """
 
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,13 +34,30 @@ STATIC_DIR    = BASE_DIR / "static"
 PARTICIPANT_DIR = STATIC_DIR / "participant"
 WIZARD_DIR      = STATIC_DIR / "wizard"
 ASSETS_DIR      = STATIC_DIR / "static"         # merged hashed JS / CSS
-TEMPLATE_FILE   = BASE_DIR / "templates.json"
+
+# Template persistence - use /data if available (Render persistent disk), fallback to local
+TEMPLATE_DIR = Path(os.environ.get("TEMPLATE_DIR", str(BASE_DIR)))
+TEMPLATE_FILE = TEMPLATE_DIR / "templates.json"
+
+# Ensure template directory exists
+TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
 
 app      = Flask(__name__, static_folder=None)  # we serve manually
-app.config["SECRET_KEY"] = "change‑me‑for‑prod"
-CORS(app, resources={r"/*": {"origins": "*"}})
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change‑me‑for‑prod")
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+# CORS configuration - open for development, locked down for production
+if os.environ.get("NODE_ENV") == "production":
+    # Production: lock down to specific origins
+    allowed_origins = [
+        os.environ.get("RENDER_EXTERNAL_URL", "https://your-app.onrender.com"),
+        "https://your-app.onrender.com"  # fallback
+    ]
+    CORS(app, resources={r"/*": {"origins": allowed_origins}})
+    socketio = SocketIO(app, cors_allowed_origins=allowed_origins)
+else:
+    # Development: allow localhost
+    CORS(app, resources={r"/*": {"origins": "*"}})
+    socketio = SocketIO(app, cors_allowed_origins="*")
 
 # room id → list[ message dict ]
 rooms: Dict[str, List[dict]] = {}
@@ -50,7 +68,7 @@ _template_lock = Lock()                         # file‑level synchronisation
 
 
 def _save_templates(data: dict) -> None:
-    """Write templates atomically (tmp → rename)."""
+    """Write templates atomically (tmp → rename)."""
     tmp = TEMPLATE_FILE.with_suffix(".json.tmp")
     with tmp.open("w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
@@ -70,11 +88,11 @@ def _normalise(data: dict) -> dict:
         return {"General": data}
     return data
 
-# ─── 2. replace _load_templates() by this version ───────────────────────────
 def _load_templates() -> dict:
     if TEMPLATE_FILE.exists():
         with TEMPLATE_FILE.open(encoding="utf-8") as fh:
-            return _normalise(json.load(fh))
+            data = json.load(fh)
+            return _normalise(data)
 
     default = {
         "General": {
@@ -87,9 +105,7 @@ def _load_templates() -> dict:
     _save_templates(default)
     return default
 
-
-
-TEMPLATES: Dict[str, str] = _load_templates()
+TEMPLATES: Dict[str, dict] = _load_templates()
 
 # ───────────────────────────────────────────────  Misc helpers
 
@@ -145,8 +161,16 @@ def participant_app(room_id: str):
 
 @app.route("/static/<path:filename>")
 def static_assets(filename):
-    # hashed JS/CSS for *both* bundles live here
-    return send_from_directory(ASSETS_DIR, filename)
+    # Handle both separated bundles and any fallback to merged assets
+    if filename.startswith("p/"):
+        # Participant bundle assets
+        return send_from_directory(ASSETS_DIR / "p", filename[2:])
+    elif filename.startswith("w/"):
+        # Wizard bundle assets  
+        return send_from_directory(ASSETS_DIR / "w", filename[2:])
+    else:
+        # Fallback to original location for any other assets
+        return send_from_directory(ASSETS_DIR, filename)
 
 
 # ─────────────────────  ↑ existing routes unchanged – NEW below  ↑

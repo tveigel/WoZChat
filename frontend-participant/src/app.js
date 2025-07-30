@@ -3,9 +3,16 @@ import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import "./app.css";
 
+// Environment-aware socket connection
 const socket = io(
-  process.env.REACT_APP_BACKEND || "http://localhost:5000",
-  { transports: ["websocket"], path: "/socket.io" });                       
+  process.env.NODE_ENV === 'development' 
+    ? "http://localhost:5000" 
+    : window.location.origin,
+  {
+    transports: ["websocket"],
+    path: "/socket.io"
+  }
+);                       
 
 /* little marketing‑style status lines the user sees while waiting */
 const WAITING_HINTS = [
