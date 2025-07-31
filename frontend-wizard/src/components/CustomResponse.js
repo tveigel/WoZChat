@@ -2,6 +2,10 @@
 import React from "react";
 
 function CustomResponse({ draft, setDraft, onSend, textareaRef }) {
+  const sendCheckmark = () => {
+    onSend("✅");
+  };
+
   return (
     <div className="custom-response">
       <h3>Custom Response</h3>
@@ -18,7 +22,25 @@ function CustomResponse({ draft, setDraft, onSend, textareaRef }) {
           }}
           placeholder="Type a custom response…"
         />
-        <button type="submit">Send Response</button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button type="submit">Send Response</button>
+          <button 
+            type="button" 
+            onClick={sendCheckmark}
+            style={{ 
+              backgroundColor: "#28a745", 
+              color: "white", 
+              border: "none", 
+              padding: "8px 12px", 
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "16px"
+            }}
+            title="Send green checkmark"
+          >
+            ✅
+          </button>
+        </div>
       </form>
     </div>
   );

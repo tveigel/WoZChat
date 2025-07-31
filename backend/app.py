@@ -42,8 +42,13 @@ TEMPLATE_FILE = TEMPLATE_DIR / "templates.json"
 # Ensure template directory exists
 TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
 
+# Validate SECRET_KEY configuration
+secret = os.environ.get("SECRET_KEY")
+if not secret:
+    raise RuntimeError("SECRET_KEY env var is mandatory in production")
+
 app      = Flask(__name__, static_folder=None)  # we serve manually
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change‑me‑for‑prod")
+app.config["SECRET_KEY"] = secret
 
 # CORS configuration - open for development, locked down for production
 if os.environ.get("NODE_ENV") == "production":
@@ -130,7 +135,7 @@ def save(room: str, sender: str, text: str) -> dict:
 def _stream_wizard_message(room: str, text: str) -> None:
     words = text.split()
     for i, w in enumerate(words):
-        socketio.sleep(0.08)  # tweak typing speed
+        socketio.sleep(80)  # 80ms typing speed (converted from 0.08s)
         emit(
             "stream_chunk",
             {"word": w, "is_last": i == len(words) - 1},

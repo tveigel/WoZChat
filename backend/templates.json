@@ -1,22 +1,31 @@
 {
   "General": {
-    "no_info": "I'm sorry, I don't have information about that.",
-    "goodbye": "Thank you for chatting with me. Goodbye!",
-    "1753869471224": "yayy",
-    "1753870776855": "s",
-    "1753870785097": "ss",
-    "1753870791207": "sdf",
-    "1753870796487": "fwef",
-    "1753870801067": "fwe",
-    "1753870805377": "fwe"
+    "1753875934611": "Hallo Simon, wilkommen beim ePDCA Create Chatbot. Wie kann ich heute helfen?",
+    "why": "Ich kann dir helfen einen neuen ePDCA zu erstellen, indem ich dir Fragen stelle und deine Antworten aufzeichne. Möchtest du einen neuen ePDCA erstellen?",
+    "yes": "Super, ich sehe dass du Simon Janssen von TV-D-24 bist. Für welches Problem möchtest du einen ePDCA erstellen?",
+    
   },
-  "second": {
-    "1753869483274": "noooo"
+  "BaseData": {
+    "Topicdescription": "Könntest du etwas genauer schildern was passiert ist?",
+    "1753869483273": "Alles klar, ich habe das ganze für dich notiert. Wo genau befindet sich der Workspace in dem das Problem aufgetreten ist?",
+    "1753870000000": "Kannst du mir das noch etwas genauer sagen?",
+    "1753870200000": "Kannst du mir bitte den Namen des Workspaces nennen? Idealerweise verrätst du mir den Namen des Werks und die genaue Örtlichkeit bis hin zum Takt"
+
   },
+
+  "ImmediateAction": {
+    "1753870437781": "Was ist die nächste Aktion, die du ergriffen hast?",
+    "1753870437782": "Könntest du mir bitte den Namen der Person nennen, die diese Aktion durchgeführt hat, wann die Aktion durchgeführt wurde und ob das ganze effektiv war??",
+    "1753870437783": "Wann soll diese Aktion durchgeführt werden? Bitte gib mir ein Datum und eine Uhrzeit an.",
+    "1753870437784": "Super, ich habe alle Informationen für die sofortige Aktion notiert. Möchtest du noch etwas hinzufügen?"
+  },
+
   "Pinned": {
     "1753870437781": "Ich bin ein KI-Chatbot, dafür designed dir zu helfen das Formular auszufüllen",
-    "1753875934611": "Hallo Simon, wilkommen beim e-PDCA Create Chatbot. Wie kann ich heute helfen?",
+
     "1753876039545": "Ich kann deine Antwort leider nicht zu dem mir vorliegenden Formular matchen, könntest du das bitte umformulieren?",
-    "1753877085174": "Könntest du das genauer für mich ausführen?"
+    "1753877085174": "Könntest du das genauer für mich ausführen?",
+    "goodbye": "Thank you for chatting with me. Goodbye!",
+    "no_info": "I'm sorry, I don't have information about that."
   }
 }
