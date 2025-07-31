@@ -135,12 +135,11 @@ def save(room: str, sender: str, text: str) -> dict:
 def _stream_wizard_message(room: str, text: str) -> None:
     words = text.split()
     for i, w in enumerate(words):
-        socketio.sleep(80)  # 80ms typing speed (converted from 0.08s)
-        emit(
+        socketio.sleep(1)  # 1 second typing speed for better visibility
+        socketio.emit(
             "stream_chunk",
             {"word": w, "is_last": i == len(words) - 1},
             to=room,
-            include_self=False,
         )
 
 # ───────────────────────────────────────────────  HTTP routes
@@ -373,10 +372,7 @@ def on_wizard_response(data):
     # 1) show full msg immediately to the wizard only
     emit("new_message", msg)
 
-    # 2) stream to participant
-    _stream_wizard_message(room, text)
-
-    # 3) send final full msg to participant
+    # 2) send final full msg to participant immediately (no streaming for now)
     emit("new_message", msg, to=room, include_self=False)
 
 
