@@ -20,6 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # copy back‑end
 COPY backend /app/backend
 
+# copy bot files and questionnaire
+COPY accident_report /app/accident_report
+
 # copy React HTML files
 COPY --from=builder /src/frontend-participant/build /app/backend/static/participant
 COPY --from=builder /src/frontend-wizard/build     /app/backend/static/wizard

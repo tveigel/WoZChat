@@ -17,10 +17,9 @@
     "1753870437784": "Super, ich habe alle Informationen für die sofortige Aktion notiert. Möchtest du noch etwas hinzufügen?"
   },
   "Pinned": {
-    "1753870437781": "Ich bin ein KI-Chatbot, dafür designed dir zu helfen das Formular auszufüllen",
-    "1753876039545": "Ich kann deine Antwort leider nicht zu dem mir vorliegenden Formular matchen, könntest du das bitte umformulieren?",
-    "1753877085174": "Könntest du das genauer für mich ausführen?",
     "goodbye": "Thank you for chatting with me. Goodbye!",
-    "no_info": "I'm sorry, I don't have information about that."
+    "no_info": "I'm sorry, I don't have information about that.",
+    "1754490084132": "You know what? I think you're lying.",
+    "1754490113595": "I think you should get back to your master thesis and not bother with the accident form..."
   }
 }

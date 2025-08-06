@@ -1,0 +1,52 @@
+{
+  "form_title": "Simplified International Crash Report Form",
+  "completion_date": "2025-08-06",
+  "responses": {
+    "date_of_accident": "2025-08-06",
+    "time_of_accident": "09:15:00",
+    "location_of_accident": "Highway 401, Toronto",
+    "road_surface_condition": "Debris",
+    "weather": "Clear",
+    "lighting": "Daylight",
+    "road_type_and_controls": {
+      "location_type": "Curve",
+      "posted_speed_limit": 100,
+      "traffic_control": "None"
+    },
+    "number_of_vehicles_involved": "3",
+    "vehicles": [
+      {
+        "vehicle_type_make_model": "Motorcycle / Harley / Sportster",
+        "licence_plate": "BIKE-123",
+        "pre_crash_manoeuvre": "Overtaking",
+        "approx_speed_kmh": 80,
+        "damage_description": "Complete writeoff"
+      },
+      {
+        "vehicle_type_make_model": "Pickup / Chevy / Silverado",
+        "licence_plate": "TRUCK-456",
+        "pre_crash_manoeuvre": "Straight",
+        "approx_speed_kmh": 90,
+        "damage_description": "Minor scratches"
+      },
+      {
+        "vehicle_type_make_model": "Van / Honda / Odyssey",
+        "licence_plate": "VAN-789",
+        "pre_crash_manoeuvre": "Turning-Right",
+        "approx_speed_kmh": 70,
+        "damage_description": "Rear end damage"
+      }
+    ],
+    "accident_narrative": "Motorcycle was overtaking when pickup changed lanes suddenly",
+    "apparent_contributing_factors": [
+      "Speeding",
+      "Vehicle Defect"
+    ],
+    "any_injuries": true,
+    "injury_table": "Motorcycle driver: serious head injury; Pickup driver: minor cuts",
+    "any_fatalities": true,
+    "non_vehicle_property_damage": false,
+    "witnesses_present": false,
+    "additional_comments": "Complex multi-vehicle accident"
+  }
+}

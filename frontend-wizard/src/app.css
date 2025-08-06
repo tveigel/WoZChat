@@ -100,8 +100,18 @@ h3 {
   align-self: flex-end;
 }
 
+.message.bot {
+  background-color: #e8f5e8;
+  align-self: flex-end;
+  border-left: 4px solid #28a745;
+}
+
 .message.wizard .sender-label {
   color: #0056b3;
+}
+
+.message.bot .sender-label {
+  color: #155724;
 }
 
 /* ───────────────────────────── Typing Preview */
@@ -264,6 +274,99 @@ h3 {
 
 .custom-response button:hover {
   background-color: #218838;
+}
+
+/* ───────────────────────────── Bot Controls */
+.bot-controls {
+  margin: 15px 0;
+  padding: 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.bot-controls h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 1rem;
+}
+
+.bot-status {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.bot-status.active {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.bot-status.inactive {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.bot-status.unavailable {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.bot-status p {
+  margin: 4px 0;
+}
+
+.bot-actions {
+  margin-bottom: 10px;
+}
+
+.bot-btn {
+  width: 100%;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bot-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.start-btn {
+  background: #28a745;
+  color: white;
+}
+
+.start-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.stop-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.stop-btn:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.bot-info {
+  padding-top: 8px;
+  border-top: 1px solid #dee2e6;
+}
+
+.bot-info small {
+  color: #6c757d;
+  font-style: italic;
+  line-height: 1.3;
 }
 
 

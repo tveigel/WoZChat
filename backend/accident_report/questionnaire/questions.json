@@ -1,0 +1,303 @@
+{
+  "title": "Simplified International Crash Report Form",
+  "references": [
+    "Model Minimum Uniform Crash Criteria (MMUCC), 6th ed., NHTSA 2024",
+    "Common Accident Data Set (CADaS) v3.8.1, European Commission 2023",
+    "ANSI D16.1-2017, Manual on Classification of Motor-Vehicle Traffic Crashes",
+    "UNECE/WHO Road-Safety Data Definitions",
+    "European Accident Statement template, Insurance Europe"
+  ],
+  "questions": [
+    {
+      "id": "date_of_accident",
+      "question": "What is the date of the accident?",
+      "type": "date",
+      "gold_standard": "2025-06-12"
+    },
+    {
+      "id": "time_of_accident",
+      "question": "What time did the accident occur?",
+      "type": "time",
+      "gold_standard": "14:35"
+    },
+    {
+      "id": "location_of_accident",
+      "question": "Where did the accident occur? (Please provide street/route, city/town, and any landmark or distance from junction)",
+      "type": "text",
+      "gold_standard": "123 Main St, Springfield, 200m east of Oak Ave"
+    },
+    {
+      "id": "road_surface_condition",
+      "question": "What was the road surface condition at the time of the accident?",
+      "type": "single_choice",
+      "options": [
+        "Dry",
+        "Wet",
+        "Snow / Ice",
+        "Debris",
+        "Other"
+      ],
+      "other_specify": true,
+      "gold_standard": {
+        "choice": "Wet",
+        "other": null
+      }
+    },
+    {
+      "id": "weather",
+      "question": "What was the weather at the time of the accident?",
+      "type": "single_choice",
+      "options": [
+        "Clear",
+        "Rain",
+        "Fog",
+        "Snow",
+        "Other"
+      ],
+      "other_specify": true,
+      "gold_standard": {
+        "choice": "Rain",
+        "other": null
+      }
+    },
+    {
+      "id": "lighting",
+      "question": "What was the lighting condition at the time of the accident?",
+      "type": "single_choice",
+      "options": [
+        "Daylight",
+        "Dusk / Dawn",
+        "Dark–Lit",
+        "Dark–Unlit"
+      ],
+      "gold_standard": "Daylight"
+    },
+    {
+      "id": "road_type_and_controls",
+      "question": "Please provide details about the road type and traffic controls at the accident location.",
+      "type": "group",
+      "fields": [
+        {
+          "id": "location_type",
+          "question": "Was the accident location on a straight road, a curve, or an intersection?",
+          "type": "single_choice",
+          "options": [
+            "Straight",
+            "Curve",
+            "Intersection"
+          ],
+          "gold_standard": "Intersection"
+        },
+        {
+          "id": "posted_speed_limit",
+          "question": "What was the posted speed limit at the accident location (in km/h)?",
+          "type": "number",
+          "gold_standard": 50
+        },
+        {
+          "id": "traffic_control",
+          "question": "What type of traffic control was present at the accident location?",
+          "type": "single_choice",
+          "options": [
+            "Stop Sign",
+            "Signal",
+            "None"
+          ],
+          "gold_standard": "Signal"
+        }
+      ],
+      "gold_standard": {
+        "location_type": "Intersection",
+        "posted_speed_limit": 50,
+        "traffic_control": "Signal"
+      }
+    },
+    {
+      "id": "number_of_vehicles_involved",
+      "question": "How many vehicles were involved in the accident?",
+      "type": "single_choice",
+      "options": [
+        "1",
+        "2",
+        "3",
+        "Other"
+      ],
+      "other_specify": true,
+      "gold_standard": {
+        "choice": "2",
+        "other": null
+      }
+    },
+    {
+      "id": "vehicles",
+      "question": "Please provide details for each vehicle involved in the accident.",
+      "type": "repeat_group",
+      "fields": [
+        {
+          "id": "vehicle_type_make_model",
+          "question": "What is the type, make, and model of the vehicle?",
+          "type": "text",
+          "gold_standard": "Sedan / Toyota / Camry"
+        },
+        {
+          "id": "licence_plate",
+          "question": "What is the licence plate of the vehicle?",
+          "type": "text",
+          "gold_standard": "ABC-1234"
+        },
+        {
+          "id": "pre_crash_manoeuvre",
+          "question": "What was the vehicle's pre-crash manoeuvre?",
+          "type": "single_choice",
+          "options": [
+            "Straight",
+            "Turning-Left",
+            "Turning-Right",
+            "Overtaking",
+            "Other"
+          ],
+          "gold_standard": "Turning-Left"
+        },
+        {
+          "id": "approx_speed_kmh",
+          "question": "What was the approximate speed of the vehicle at the time of the accident (in km/h)?",
+          "type": "number",
+          "gold_standard": 30
+        },
+        {
+          "id": "damage_description",
+          "question": "Please describe the damage to the vehicle.",
+          "type": "text",
+          "gold_standard": "Front-left fender dented"
+        }
+      ],
+      "gold_standard": [
+        {
+          "vehicle_type_make_model": "Sedan / Toyota / Camry",
+          "licence_plate": "ABC-1234",
+          "pre_crash_manoeuvre": "Turning-Left",
+          "approx_speed_kmh": 30,
+          "damage_description": "Front-left fender dented"
+        },
+        {
+          "vehicle_type_make_model": "SUV / Honda / CR-V",
+          "licence_plate": "XYZ-5678",
+          "pre_crash_manoeuvre": "Straight",
+          "approx_speed_kmh": 45,
+          "damage_description": "Front bumper cracked"
+        }
+      ]
+    },
+    {
+      "id": "accident_narrative",
+      "question": "Please describe the sequence of events in the accident.",
+      "type": "multiline_text",
+      "gold_standard": "Vehicle 1 was turning left at the intersection. Vehicle 2 was proceeding straight through a green light. The vehicles collided in the intersection."
+    },
+    {
+      "id": "apparent_contributing_factors",
+      "question": "What were the apparent contributing factors to the accident? (Select all that apply)",
+      "type": "multiple_choice",
+      "options": [
+        "Speeding",
+        "Failed-to-Yield",
+        "Distraction",
+        "Weather/Road",
+        "Vehicle Defect",
+        "Other"
+      ],
+      "other_specify": true,
+      "gold_standard": {
+        "choices": ["Failed-to-Yield", "Weather/Road"],
+        "other": null
+      }
+    },
+    {
+      "id": "any_injuries",
+      "question": "Were there any injuries as a result of the accident?",
+      "type": "boolean",
+      "gold_standard": true,
+      "followup_if_yes": {
+        "id": "injury_table",
+        "question": "Please provide details of any injuries (role, vehicle #, severity, injury description).",
+        "type": "table",
+        "columns": [
+          {
+            "id": "role",
+            "question": "What was the role of the injured person? (Driver, Passenger, Pedestrian)",
+            "type": "text"
+          },
+          {
+            "id": "vehicle_number",
+            "question": "Which vehicle was the injured person associated with?",
+            "type": "text"
+          },
+          {
+            "id": "severity",
+            "question": "What was the severity of the injury?",
+            "type": "single_choice",
+            "options": [
+              "Minor",
+              "Serious"
+            ]
+          },
+          {
+            "id": "injury_description",
+            "question": "Please describe the injury.",
+            "type": "text"
+          }
+        ],
+        "gold_standard": [
+          {
+            "role": "Driver",
+            "vehicle_number": "1",
+            "severity": "Minor",
+            "injury_description": "Bruised left arm"
+          },
+          {
+            "role": "Passenger",
+            "vehicle_number": "2",
+            "severity": "Serious",
+            "injury_description": "Possible concussion"
+          }
+        ]
+      }
+    },
+    {
+      "id": "any_fatalities",
+      "question": "Were there any fatalities as a result of the accident?",
+      "type": "boolean",
+      "gold_standard": false
+    },
+    {
+      "id": "non_vehicle_property_damage",
+      "question": "Was there any non-vehicle property damage as a result of the accident?",
+      "type": "boolean",
+      "gold_standard": true,
+      "followup_if_yes": {
+        "id": "property_damage_description",
+        "question": "If yes, please describe the non-vehicle property damage.",
+        "type": "text",
+        "gold_standard": "Traffic signal pole knocked over"
+      }
+    },
+    {
+      "id": "witnesses_present",
+      "question": "Were any witnesses present at the scene of the accident?",
+      "type": "boolean",
+      "gold_standard": true,
+      "followup_if_yes": {
+        "id": "witnesses_names_contacts",
+        "question": "If yes, please provide the names and contact details of any witnesses.",
+        "type": "text",
+        "gold_standard": "Jane Doe, 555-1234"
+      }
+    },
+    {
+      "id": "additional_comments",
+      "question": "Do you have any additional comments regarding the accident? (optional)",
+      "type": "multiline_text",
+      "gold_standard": "Both vehicles towed from the scene. Photos taken."
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import PinnedTemplates from "./components/PinnedTemplates";
 import PhaseSelector from "./components/PhaseSelector";
 import TemplateManager from "./TemplateManager";
 import CustomResponse from "./components/CustomResponse";
+import BotControls from "./components/BotControls";
 
 // Custom Hooks
 import useSocket from "./hooks/useSocket";
@@ -112,6 +113,9 @@ export default function App() {
             setSetupMode={setSetupMode}
             room={room}
           />
+
+          {/* bot controls */}
+          <BotControls room={room} socket={socket} />
 
           {/* pinned templates scroll wrapper */}
           <div style={{ maxHeight: "35vh", overflowY: "auto" }}>

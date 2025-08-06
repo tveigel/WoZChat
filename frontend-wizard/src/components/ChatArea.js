@@ -27,13 +27,15 @@ function ChatArea({ messages, typing, onExportLog, room }) {
       <div className="messages">
         {messages.map((m, i) => (
           <div key={i} className={`message ${m.sender}`}>
-            <div className="sender-label">{m.sender}</div>
+            <div className="sender-label">
+              {m.sender === 'bot' ? '🤖 Bot' : m.sender}
+            </div>
             {typeof m.text === "object" ? (
               <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
                 {JSON.stringify(m.text, null, 2)}
               </pre>
             ) : (
-              m.text
+              <div style={{ whiteSpace: "pre-wrap" }}>{m.text}</div>
             )}
           </div>
         ))}

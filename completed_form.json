@@ -1,0 +1,45 @@
+{
+  "form_title": "Simplified International Crash Report Form",
+  "completion_date": "2025-08-06",
+  "responses": {
+    "date_of_accident": "2025-05-15",
+    "time_of_accident": "16:30:00",
+    "location_of_accident": "Test Location",
+    "road_surface_condition": "Wet",
+    "weather": "Rain",
+    "lighting": "Daylight",
+    "road_type_and_controls": {
+      "location_type": "Curve",
+      "posted_speed_limit": 60,
+      "traffic_control": "None"
+    },
+    "number_of_vehicles_involved": "2",
+    "vehicles": [
+      {
+        "vehicle_type_make_model": "Car / Test / Vehicle1",
+        "licence_plate": "TEST-1",
+        "pre_crash_manoeuvre": "Straight",
+        "approx_speed_kmh": 50,
+        "damage_description": "Minor damage"
+      },
+      {
+        "vehicle_type_make_model": "Car / Test / Vehicle2",
+        "licence_plate": "TEST-2",
+        "pre_crash_manoeuvre": "Straight",
+        "approx_speed_kmh": 55,
+        "damage_description": "Minor damage"
+      }
+    ],
+    "accident_narrative": "Standard two-car accident",
+    "apparent_contributing_factors": [
+      "Speeding"
+    ],
+    "any_injuries": true,
+    "injury_table": "Minor injuries to both drivers",
+    "any_fatalities": false,
+    "non_vehicle_property_damage": true,
+    "property_damage_description": "Sign post damaged",
+    "witnesses_present": false,
+    "additional_comments": "Standard accident report"
+  }
+}

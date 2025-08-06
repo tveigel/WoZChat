@@ -14,7 +14,6 @@ Built for Docker: gunicorn ‑k eventlet ‑w 1 ‑b 0.0.0.0:10000 backend.app:a
 """
 
 from __future__ import annotations
-
 import json
 import os
 import uuid
@@ -26,6 +25,15 @@ from typing import Dict, List
 from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
+
+# Import bot manager with error handling
+try:
+    from bot_integration import bot_manager
+    BOT_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Bot integration not available: {e}")
+    bot_manager = None
+    BOT_AVAILABLE = False
 
 # ───────────────────────────────────────────────  Server & paths
 
@@ -45,7 +53,12 @@ TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
 # Validate SECRET_KEY configuration
 secret = os.environ.get("SECRET_KEY")
 if not secret:
-    raise RuntimeError("SECRET_KEY env var is mandatory in production")
+    # In development, use a default secret key
+    if os.environ.get("NODE_ENV") == "production":
+        raise RuntimeError("SECRET_KEY env var is mandatory in production")
+    else:
+        secret = "dev-secret-key-change-in-production"
+        print("⚠️ Using default SECRET_KEY for development. Set SECRET_KEY env var for production.")
 
 app      = Flask(__name__, static_folder=None)  # we serve manually
 app.config["SECRET_KEY"] = secret
@@ -209,6 +222,76 @@ def static_assets(filename):
 
 # ─────────────────────  ↑ existing routes unchanged – NEW below  ↑
 
+# ───────────────────────────────────────────────  Bot Control API
+
+@app.get("/api/bot/<room_id>/status")
+def get_bot_status(room_id: str):
+    """Get bot status for a specific room."""
+    if not BOT_AVAILABLE or not bot_manager:
+        return jsonify({
+            "active": False,
+            "available": False,
+            "progress": "Bot not available"
+        })
+    
+    status = bot_manager.get_bot_status(room_id)
+    return jsonify(status)
+
+
+@app.post("/api/bot/<room_id>/start")
+def start_bot(room_id: str):
+    """Start the bot for a specific room."""
+    if not BOT_AVAILABLE or not bot_manager:
+        return jsonify({
+            "status": "error", 
+            "message": "Bot service is not available. Please check the server configuration."
+        })
+    
+    response_message = bot_manager.start_bot(room_id)
+    
+    if response_message and bot_manager.is_bot_active(room_id):
+        # Send bot activation message to the room
+        msg = save(room_id, "bot", response_message)
+        msg["room"] = room_id
+        socketio.emit("new_message", msg, to=room_id)
+        
+        # Notify wizard that bot is now active
+        socketio.emit("bot_status_changed", {
+            "room": room_id, 
+            "active": True,
+            "message": "Bot activated successfully"
+        }, to=room_id)
+        
+        return jsonify({"status": "success", "message": response_message})
+    else:
+        return jsonify({"status": "error", "message": response_message or "Failed to start bot"})
+
+
+@app.post("/api/bot/<room_id>/stop") 
+def stop_bot(room_id: str):
+    """Stop the bot for a specific room."""
+    if not BOT_AVAILABLE or not bot_manager:
+        return jsonify({
+            "status": "error",
+            "message": "Bot service is not available."
+        })
+    
+    response_message = bot_manager.stop_bot(room_id)
+    
+    # Send bot deactivation message to the room
+    msg = save(room_id, "bot", response_message)
+    msg["room"] = room_id
+    socketio.emit("new_message", msg, to=room_id)
+    
+    # Notify wizard that bot is now inactive
+    socketio.emit("bot_status_changed", {
+        "room": room_id,
+        "active": False, 
+        "message": "Bot deactivated"
+    }, to=room_id)
+    
+    return jsonify({"status": "success", "message": response_message})
+
 
 @app.get("/api/templates")
 def list_templates():
@@ -329,10 +412,30 @@ def on_join(data):
     
     # Send existing message history to the joining user with room context
     if room in rooms and rooms[room]:
-        emit("message_history", {"messages": rooms[room], "room": room})
+        for msg in rooms[room]:
+            msg_with_room = {**msg, "room": room}
+            emit("new_message", msg_with_room)
     
     if kind == "wizard":
-        emit("templates", TEMPLATES)   # unchanged
+        # Send templates to wizard
+        emit("templates", TEMPLATES)
+        
+        # Send bot status to wizard
+        if BOT_AVAILABLE and bot_manager:
+            bot_status = bot_manager.get_bot_status(room)
+            emit("bot_status_changed", {
+                "room": room,
+                "active": bot_status["active"],
+                "available": bot_status["available"],
+                "progress": bot_status.get("progress", "")
+            })
+        else:
+            emit("bot_status_changed", {
+                "room": room,
+                "active": False,
+                "available": False,
+                "progress": "Bot service unavailable"
+            })   # unchanged
 
 
 @socketio.on("leave")
@@ -357,9 +460,35 @@ def on_participant_typing(data):
 def on_participant_message(data):
     room = data.get("room", "default_room")
     text = data.get("text", "")
-    msg = save(room, "participant", text)
-    msg["room"] = room  # Include room in message
-    emit("new_message", msg, to=room)
+    
+    # Check if bot is active for this room
+    if BOT_AVAILABLE and bot_manager and bot_manager.is_bot_active(room):
+        # Let bot handle the message
+        bot_response = bot_manager.process_message(room, text)
+        
+        # Save participant message
+        msg = save(room, "participant", text)
+        msg["room"] = room
+        emit("new_message", msg, to=room)
+        
+        # Send bot response if available
+        if bot_response:
+            bot_msg = save(room, "bot", bot_response)
+            bot_msg["room"] = room
+            emit("new_message", bot_msg, to=room)
+            
+            # Check if bot completed the form and deactivated
+            if not bot_manager.is_bot_active(room):
+                socketio.emit("bot_status_changed", {
+                    "room": room,
+                    "active": False,
+                    "message": "Bot session completed"
+                }, to=room)
+    else:
+        # Normal participant message handling
+        msg = save(room, "participant", text)
+        msg["room"] = room
+        emit("new_message", msg, to=room)
 
 
 @socketio.on("wizard_response")

@@ -1,5 +1,11 @@
 flask
-flask_socketio==5.*
+flask-socketio==5.*
 eventlet>=0.36
 flask-cors
 gunicorn
+# Bot dependencies
+langgraph>=0.2.0
+langchain-core>=0.3.0
+python-dateutil>=2.8.0
+# Additional dependencies for bot functionality
+typing-extensions>=4.0.0

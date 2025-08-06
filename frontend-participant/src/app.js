@@ -3,6 +3,69 @@ import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import "./app.css";
 
+// Simple markdown-style formatter for bot messages
+const formatMessage = (text) => {
+  if (typeof text !== 'string') return text;
+  
+  // Split by lines to handle different formatting per line
+  const lines = text.split('\n');
+  const formattedLines = lines.map((line, index) => {
+    let formattedLine = line;
+    
+    // Handle bold text **text**
+    formattedLine = formattedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Handle italic text *text* (but not when surrounded by **)
+    formattedLine = formattedLine.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+    
+    // Handle bullet points • or - at start of line (with potential whitespace)
+    if (/^\s*[•\-]\s/.test(line)) {
+      const cleanLine = formattedLine.replace(/^\s*[•\-]\s*/, '');
+      return (
+        <div key={index} className="bullet-point">
+          <span dangerouslySetInnerHTML={{ __html: cleanLine }} />
+        </div>
+      );
+    }
+    
+    // Handle error messages with ❌
+    if (line.includes('❌')) {
+      return (
+        <div key={index} className="error-message">
+          <span dangerouslySetInnerHTML={{ __html: formattedLine }} />
+        </div>
+      );
+    }
+    
+    // Handle progress indicators
+    if (line.includes('Progress:')) {
+      return (
+        <div key={index} className="progress-indicator">
+          <span dangerouslySetInnerHTML={{ __html: formattedLine }} />
+        </div>
+      );
+    }
+    
+    // Empty lines for spacing
+    if (line.trim() === '') {
+      return <div key={index} className="empty-line">&nbsp;</div>;
+    }
+    
+    // Regular line with potential formatting
+    if (formattedLine !== line) {
+      return (
+        <div key={index}>
+          <span dangerouslySetInnerHTML={{ __html: formattedLine }} />
+        </div>
+      );
+    }
+    
+    return <div key={index}>{line}</div>;
+  });
+  
+  return <div className="formatted-message">{formattedLines}</div>;
+};
+
 // Environment-aware socket connection
 const socket = io(
   process.env.NODE_ENV === 'development' 
@@ -54,6 +117,14 @@ export default function App() {
     socket.on("new_message", (msg) => {
       if (msg.sender === "wizard") {
         // replace any existing streaming message
+        setMessages((prev) => [
+          ...prev.filter((m) => m.sender !== "wizard_streaming"),
+          msg,
+        ]);
+        setWizardTyping(false);
+        stopWaitingAnimation();
+      } else if (msg.sender === "bot") {
+        // Handle bot messages - add them directly to the message list
         setMessages((prev) => [
           ...prev.filter((m) => m.sender !== "wizard_streaming"),
           msg,
@@ -142,15 +213,19 @@ export default function App() {
         <div ref={listRef} className="messages">
           {messages.map((m, i) => (
             <div key={i} className={`message ${m.sender}`}>
-              {(m.sender === "wizard" || m.sender === "wizard_streaming") && (
-                <span className="wizard-emoji">🧙‍♂️</span>
+              {(m.sender === "wizard" || m.sender === "wizard_streaming" || m.sender === "bot") && (
+                <span className="wizard-emoji">
+                  {m.sender === "bot" ? "🤖" : "🧙‍♂️"}
+                </span>
               )}
               <div className="message-content">
                 {typeof m.text === 'object'
                   ? <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
                       {JSON.stringify(m.text, null, 2)}
                     </pre>
-                  : m.text}
+                  : (m.sender === "bot" || m.sender === "wizard" || m.sender === "wizard_streaming") 
+                    ? formatMessage(m.text)
+                    : m.text}
               </div>
             </div>
           ))}

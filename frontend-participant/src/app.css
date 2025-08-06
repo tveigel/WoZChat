@@ -77,7 +77,8 @@ body {
 }
 
 .message.wizard,
-.message.wizard_streaming {
+.message.wizard_streaming,
+.message.bot {
     align-self: flex-start;
 }
 
@@ -88,8 +89,9 @@ body {
 }
 
 .message-content {
-    padding: 10px 15px;
+    padding: 12px 16px;
     border-radius: 18px;
+    line-height: 1.4;
 }
 
 .message.participant .message-content {
@@ -99,10 +101,74 @@ body {
 }
 
 .message.wizard .message-content,
-.message.wizard_streaming .message-content {
+.message.wizard_streaming .message-content,
+.message.bot .message-content {
     background-color: #e9e9eb;
     color: #333;
     border-bottom-left-radius: 4px;
+}
+
+/* MESSAGE FORMATTING */
+.formatted-message {
+    line-height: 1.5;
+}
+
+.formatted-message > div {
+    margin: 0.25em 0;
+}
+
+.formatted-message > div:first-child {
+    margin-top: 0;
+}
+
+.formatted-message > div:last-child {
+    margin-bottom: 0;
+}
+
+.bullet-point {
+    margin-left: 1em;
+    position: relative;
+}
+
+.bullet-point::before {
+    content: "•";
+    position: absolute;
+    left: -1em;
+    color: #007bff;
+    font-weight: bold;
+}
+
+.error-message {
+    color: #dc3545;
+    font-weight: 500;
+    background-color: rgba(220, 53, 69, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border-left: 3px solid #dc3545;
+    margin: 4px 0;
+}
+
+.progress-indicator {
+    color: #6c757d;
+    font-size: 0.85em;
+    font-style: italic;
+    opacity: 0.8;
+    margin: 4px 0;
+}
+
+.formatted-message strong {
+    font-weight: 600;
+    color: inherit;
+}
+
+.formatted-message em {
+    font-style: italic;
+    color: inherit;
+}
+
+.empty-line {
+    height: 0.5em;
+    line-height: 0.5em;
 }
 
 /* TYPING DOTS */
