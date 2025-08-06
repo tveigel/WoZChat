@@ -17,11 +17,8 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# copy back‑end
+# copy back‑end (this includes accident_report subdirectory)
 COPY backend /app/backend
-
-# copy bot files and questionnaire
-COPY accident_report /app/accident_report
 
 # copy React HTML files
 COPY --from=builder /src/frontend-participant/build /app/backend/static/participant
