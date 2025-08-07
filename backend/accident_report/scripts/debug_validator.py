@@ -2,7 +2,7 @@
 import sys
 sys.path.append('/home/qte9306/Documents/WebWoz_Home/WebWOz/backend/accident_report/rule_based')
 
-from validator import _normalize_text
+from backend.accident_report.rule_based.validator import _normalize_text
 
 # Debug the normalization
 q_def = {

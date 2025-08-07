@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
-from LLM.rule_based.validator import validate_answer
+import sys
+import os
+# Add the project root to Python path so imports work
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
+sys.path.insert(0, project_root)
+
+from backend.accident_report.rule_based.validator import validate_answer
 
 def test_time_validation():
     print("Testing time validation:")

@@ -15,7 +15,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 try:
     from bot_integration import WebBotSession
-    from accident_report.rule_based.validator import validate_answer
+    from backend.accident_report.rule_based.validator import validate_answer
     BOT_AVAILABLE = True
     print("✅ Successfully imported bot components")
 except ImportError as e:

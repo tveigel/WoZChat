@@ -5,7 +5,7 @@ This script simulates user input to test the bot without requiring interactive i
 """
 
 import json
-from bot_naive import FormWorkflow
+from backend.accident_report.rule_based.bot_naive import FormWorkflow
 
 def test_vehicle_questions():
     """Test that the bot handles vehicle questions in a user-friendly way."""

@@ -12,8 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     # Import required modules
-    from bot_naive import FormWorkflow
-    from validator import validate_answer
+    from backend.accident_report.rule_based.bot_naive import FormWorkflow
+    from backend.accident_report.rule_based.validator import validate_answer
     import json
     
     print("✅ All imports successful!")

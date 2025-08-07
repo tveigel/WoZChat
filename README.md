@@ -4,6 +4,29 @@
 
 WebWOz enables researchers to conduct Wizard-of-Oz studies where human operators (wizards) simulate AI chatbot responses to investigate participant preferences and interactions. The platform provides real-time chat capabilities, template management, **automated rule-based bot integration**, and seamless deployment options.
 
+## 📁 Project Structure
+
+```
+WebWOz/
+├── 📂 backend/              # Flask API and SocketIO server
+│   ├── app.py              # Main application with persistent storage
+│   ├── database.py         # PostgreSQL models and hybrid storage
+│   ├── bot_integration.py  # Rule-based bot system integration
+│   ├── manage_data.py      # Data management utilities
+│   └── accident_report/    # 🤖 Organized bot system
+│       ├── rule_based/     # Core bot logic (bot_naive.py, validator.py)
+│       ├── tests/          # Bot-specific test files
+│       ├── data/           # Sample forms and visualizations
+│       ├── scripts/        # Analysis and debugging tools
+│       └── questionnaire/  # Form definitions (questions.json)
+├── 📂 frontend-participant/ # React app for study participants
+├── 📂 frontend-wizard/     # React app for researchers/wizards
+├── 📂 docs/               # All project documentation
+├── 📂 tests/              # Test files and validation scripts
+├── 📂 scripts/            # Deployment and verification utilities
+└── 📂 webwoz/             # Python virtual environment
+```
+
 ## ✨ Key Features
 
 - **🧙‍♂️ Wizard-of-Oz Studies**: Human operators control chat responses in real-time
@@ -13,6 +36,7 @@ WebWOz enables researchers to conduct Wizard-of-Oz studies where human operators
 - **🎯 Session Management**: Unique room IDs for isolating participant-wizard pairs
 - **📊 Data Export**: Export chat logs and form data for analysis
 - **🔄 Hybrid Mode**: Seamlessly switch between manual wizard control and automated bot responses
+- **💾 Persistent Storage**: PostgreSQL database with file-based fallback for reliability
 
 ## 🏗️ Architecture
 
@@ -510,10 +534,91 @@ This modular structure improves:
 - **Development velocity** - Easier to locate and modify specific functionality
 - **Bot Integration** - Clean separation between manual wizard and automated bot functionality
 
+## 📚 Documentation
 
+Comprehensive documentation is available in the [`docs/`](./docs/) folder:
 
+### Quick Start Guides
+- **[📦 Render Deployment](./docs/RENDER_DEPLOYMENT.md)** - Complete deployment guide for Render platform
+- **[🐘 PostgreSQL Integration](./docs/POSTGRESQL_INTEGRATION.md)** - Database setup and configuration
+- **[📋 Deployment Checklist](./docs/DEPLOYMENT_CHECKLIST.md)** - Pre-production verification steps
 
-###Neo4J helper:
+### Technical Reference
+- **[🔄 Persistence Summary](./docs/PERSISTENCE_SUMMARY.md)** - Storage architecture and implementation
+- **[🚀 Production Guide](./docs/PRODUCTION_GUIDE.md)** - Production deployment and management
+
+### Testing & Verification
+- **[🧪 Tests](./tests/)** - Integration and persistence tests
+- **[🛠️ Scripts](./scripts/)** - Deployment verification and utility scripts
+
+## 🚀 Quick Start
+
+1. **Clone and Setup**:
+   ```bash
+   git clone <repository-url>
+   cd WebWOz
+   python -m venv webwoz
+   source webwoz/bin/activate  # On Windows: webwoz\Scripts\activate
+   ```
+
+2. **Install Dependencies**:
+   ```bash
+   pip install -r backend/requirements.txt
+   cd frontend-participant && npm install && cd ..
+   cd frontend-wizard && npm install && cd ..
+   ```
+
+3. **Run Development Environment**:
+   ```bash
+   # Terminal 1 - Backend
+   cd backend && python app.py
+   
+   # Terminal 2 - Participant Frontend
+   cd frontend-participant && npm start
+   
+   # Terminal 3 - Wizard Frontend  
+   cd frontend-wizard && npm start
+   ```
+
+4. **Access the Application**:
+   - Participant: http://localhost:3000
+   - Wizard: http://localhost:3001
+   - API Health: http://localhost:5000/health
+
+For production deployment, see the [📦 Render Deployment Guide](./docs/RENDER_DEPLOYMENT.md).
+
+## 🧪 Testing
+
+Run tests to verify system functionality:
+
+```bash
+# Run all tests
+python -m pytest tests/
+
+# Test specific components
+python tests/test_integration.py
+python tests/test_persistence.py
+
+# Verify deployment
+python scripts/verify_deployment.py
+```
+
+## 💾 Data Management
+
+The system includes comprehensive data management tools:
+
+```bash
+# Export conversation data
+cd backend && python manage_data.py export --format json
+
+# Backup templates
+cd backend && python manage_data.py backup-templates
+
+# Health check
+curl http://localhost:5000/health
+```
+
+### Neo4J Helper
 Start Neo4j	sudo neo4j start
 Access UI	Go to http://localhost:7474
 Run script	cypher-shell -u neo4j -p your_pw < script.cypher

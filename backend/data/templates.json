@@ -1,0 +1,11 @@
+{
+  "General": {
+    "greeting": "Hello! How can I help you today?",
+    "understanding": "I understand. Let me look into that for you.",
+    "no_info": "I'm sorry, I don't have information about that.",
+    "goodbye": "Thank you for chatting with me. Goodbye!"
+  },
+  "Test": {
+    "test_persistence": "Test template created at 1754559678.6448753"
+  }
+}

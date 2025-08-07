@@ -43,7 +43,7 @@ print("The bot needs to handle these follow-up questions properly.")
 try:
     import sys
     sys.path.append('.')
-    from validator import validate_answer
+    from backend.accident_report.rule_based.validator import validate_answer
     
     # Test boolean validation
     bool_q = {"type": "boolean"}

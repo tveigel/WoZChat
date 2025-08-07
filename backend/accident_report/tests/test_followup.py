@@ -96,7 +96,7 @@ def test_simple_followup():
     print("=" * 40)
     
     # Test the validator directly first
-    from accident_report.rule_based.validator import validate_answer
+    from backend.accident_report.rule_based.validator import validate_answer
     
     # Test boolean validation
     bool_question = {"type": "boolean"}
@@ -104,7 +104,7 @@ def test_simple_followup():
     print(f"Boolean validation: 'yes' -> {is_valid}, {result}")
     
     # Test follow-up logic in the FormWorkflow
-    from accident_report.rule_based.bot_naive import FormWorkflow
+    from backend.accident_report.rule_based.bot_naive import FormWorkflow
     
     workflow = FormWorkflow("../questionnaire/questions.json", interactive=False)
     

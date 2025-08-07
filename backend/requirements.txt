@@ -3,6 +3,11 @@ flask-socketio==5.*
 eventlet>=0.36
 flask-cors
 gunicorn
+requests
+# Database dependencies
+psycopg2-binary
+sqlalchemy>=2.0.0
+flask-sqlalchemy
 # Bot dependencies
 langgraph>=0.2.0
 langchain-core>=0.3.0

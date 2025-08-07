@@ -11,7 +11,7 @@ BACKEND_DIR = Path(__file__).parent.parent.parent.parent  # Go up to backend lev
 sys.path.insert(0, str(BACKEND_DIR))
 
 try:
-    from accident_report.rule_based.validator import validate_answer
+    from backend.accident_report.rule_based.validator import validate_answer
     print("✅ Successfully imported validator")
 except ImportError as e:
     print(f"❌ Failed to import validator: {e}")

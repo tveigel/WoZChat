@@ -2,8 +2,21 @@
 """
 Flask‑SocketIO back‑end that also serves the pre‑built React bundles.
 
-• /api/new_room          → POST, returns {"room": "<8‑char id>"}
-• /wizard[/<room>]       → wizard UI (HTML)
+• /api/new_room          →# room id → list[ message dict ]
+rooms: Dict[str, List[dict]] = {}
+
+# Global templates dictionary (will be loaded after database manager is ready)
+TEMPLATES: Dict[str, dict] = {}
+
+# ───────────────────────────────────────────────  Storage helpers
+
+# Global templates dictionary (will be loaded after database manager is ready)
+TEMPLATES: Dict[str, dict] = {}
+
+# room id → list[ message dict ]
+rooms: Dict[str, List[dict]] = {}
+
+# ───────────────────────────────────────────────  HTTP routes
 • /chat/<room>           → participant UI (HTML)
 • /static/*              → hashed JS/CSS assets of *both* bundles
 • /api/templates         → GET/POST – list or create template
@@ -26,24 +39,6 @@ from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
-# Import bot manager with error handling
-try:
-    from .bot_integration import bot_manager
-    BOT_AVAILABLE = True
-    print("✅ Bot integration imported successfully")
-except ImportError as e:
-    print(f"⚠️ Bot integration not available with relative import: {e}")
-    try:
-        from bot_integration import bot_manager
-        BOT_AVAILABLE = True
-        print("✅ Bot integration imported successfully (direct import)")
-    except ImportError as e2:
-        print(f"⚠️ Bot integration not available: {e2}")
-        import traceback
-        traceback.print_exc()
-        bot_manager = None
-        BOT_AVAILABLE = False
-
 # ───────────────────────────────────────────────  Server & paths
 
 BASE_DIR      = Path(__file__).resolve().parent
@@ -64,12 +59,95 @@ if STATIC_DIR.exists():
 else:
     print("⚠️ STATIC_DIR does not exist!")
 
-# Template persistence - use /data if available (Render persistent disk), fallback to local
-TEMPLATE_DIR = Path(os.environ.get("TEMPLATE_DIR", str(BASE_DIR)))
-TEMPLATE_FILE = TEMPLATE_DIR / "templates.json"
+# Persistent storage configuration for production deployment
+# Priority: 1) DATA_DIR env var, 2) Render standard path, 3) Local fallback
+RENDER_DATA_PATH = "/opt/render/project/src/data"
+DEFAULT_DATA_PATH = str(BASE_DIR / "data")
 
-# Ensure template directory exists
-TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+# Determine the best data directory
+if os.environ.get("DATA_DIR"):
+    DATA_DIR = Path(os.environ.get("DATA_DIR"))
+    print(f"🔍 Using DATA_DIR from environment: {DATA_DIR}")
+elif Path(RENDER_DATA_PATH).parent.exists() and os.access(Path(RENDER_DATA_PATH).parent, os.W_OK):
+    # On Render platform with write access
+    DATA_DIR = Path(RENDER_DATA_PATH)
+    print(f"🔍 Using Render standard path: {DATA_DIR}")
+else:
+    # Local development fallback
+    DATA_DIR = Path(DEFAULT_DATA_PATH)
+    print(f"🔍 Using local fallback path: {DATA_DIR}")
+
+TEMPLATE_FILE = DATA_DIR / "templates.json"
+CONVERSATIONS_DIR = DATA_DIR / "conversations"
+
+# Ensure data directories exist with proper error handling
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    CONVERSATIONS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Test write access
+    test_file = DATA_DIR / ".write_test"
+    test_file.write_text("test")
+    test_file.unlink()
+    
+    print(f"✅ DATA_DIR: {DATA_DIR}")
+    print(f"✅ CONVERSATIONS_DIR: {CONVERSATIONS_DIR}")
+    print(f"✅ Write access confirmed")
+    
+except PermissionError as e:
+    print(f"❌ Permission error creating data directories: {e}")
+    print(f"❌ Attempted path: {DATA_DIR}")
+    # Fallback to system temp directory for minimal functionality
+    import tempfile
+    DATA_DIR = Path(tempfile.gettempdir()) / "webwoz_data"
+    DATA_DIR.mkdir(exist_ok=True)
+    CONVERSATIONS_DIR = DATA_DIR / "conversations"
+    CONVERSATIONS_DIR.mkdir(exist_ok=True)
+    TEMPLATE_FILE = DATA_DIR / "templates.json"
+    print(f"⚠️  Using temporary directory: {DATA_DIR}")
+    
+except Exception as e:
+    print(f"❌ Unexpected error creating data directories: {e}")
+    raise RuntimeError(f"Failed to initialize persistent storage: {e}")
+
+print(f"🔍 Final storage configuration:")
+print(f"   DATA_DIR exists: {DATA_DIR.exists()}")
+print(f"   CONVERSATIONS_DIR exists: {CONVERSATIONS_DIR.exists()}")
+print(f"   Write access: {os.access(DATA_DIR, os.W_OK)}")
+
+# Initialize database manager (PostgreSQL + file fallback)
+try:
+    from .database import DatabaseManager
+    print("✅ Database module imported successfully")
+except ImportError:
+    try:
+        from database import DatabaseManager
+        print("✅ Database module imported successfully (direct import)")
+    except ImportError as e:
+        print(f"❌ Database module import failed: {e}")
+        DatabaseManager = None
+
+# Initialize database manager
+if DatabaseManager:
+    db_manager = DatabaseManager(DATA_DIR)
+    print(f"🔍 Database manager initialized: {db_manager.use_postgres and 'PostgreSQL' or 'File-based'}")
+else:
+    db_manager = None
+    print("⚠️ Database manager not available - using legacy file storage")
+
+# Initialize templates after database manager is ready
+# (moved to after function definitions)
+
+# Check available disk space (helpful for production monitoring)
+try:
+    import shutil
+    total, used, free = shutil.disk_usage(DATA_DIR)
+    free_gb = free / (1024**3)
+    print(f"🔍 Available storage: {free_gb:.2f} GB")
+    if free_gb < 1.0:
+        print("⚠️  Warning: Low disk space (< 1GB available)")
+except Exception as e:
+    print(f"⚠️  Could not check disk space: {e}")
 
 # Validate SECRET_KEY configuration
 secret = os.environ.get("SECRET_KEY")
@@ -112,17 +190,101 @@ else:
 # room id → list[ message dict ]
 rooms: Dict[str, List[dict]] = {}
 
-# ───────────────────────────────────────────────  Template helpers
+# ───────────────────────────────────────────────  Storage helpers
 
 _template_lock = Lock()                         # file‑level synchronisation
+_conversation_lock = Lock()                     # conversation file synchronisation
 
 
 def _save_templates(data: dict) -> None:
-    """Write templates atomically (tmp → rename)."""
+    """Save templates using database manager or file fallback."""
+    if db_manager:
+        try:
+            db_manager.save_templates(data)
+            return
+        except Exception as e:
+            print(f"❌ Failed to save templates via database manager: {e}")
+    
+    # Fallback to legacy file storage
     tmp = TEMPLATE_FILE.with_suffix(".json.tmp")
-    with tmp.open("w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-    tmp.replace(TEMPLATE_FILE)
+    try:
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        tmp.replace(TEMPLATE_FILE)
+        print(f"✅ Templates saved to {TEMPLATE_FILE}")
+    except Exception as e:
+        print(f"❌ Failed to save templates: {e}")
+        if tmp.exists():
+            tmp.unlink()  # Clean up temp file
+
+
+def _save_conversation(room_id: str, messages: List[dict]) -> None:
+    """Save conversation history for a room atomically."""
+    if not messages:
+        return
+        
+    conversation_file = CONVERSATIONS_DIR / f"{room_id}.json"
+    tmp_file = conversation_file.with_suffix(".json.tmp")
+    
+    try:
+        conversation_data = {
+            "room_id": room_id,
+            "created_at": messages[0]["timestamp"] if messages else utc_now(),
+            "last_updated": utc_now(),
+            "message_count": len(messages),
+            "messages": messages
+        }
+        
+        with tmp_file.open("w", encoding="utf-8") as fh:
+            json.dump(conversation_data, fh, ensure_ascii=False, indent=2)
+        tmp_file.replace(conversation_file)
+        print(f"✅ Conversation {room_id} saved with {len(messages)} messages")
+    except Exception as e:
+        print(f"❌ Failed to save conversation {room_id}: {e}")
+        if tmp_file.exists():
+            tmp_file.unlink()  # Clean up temp file
+
+
+def _load_conversation(room_id: str) -> List[dict]:
+    """Load conversation history for a room."""
+    conversation_file = CONVERSATIONS_DIR / f"{room_id}.json"
+    if conversation_file.exists():
+        try:
+            with conversation_file.open(encoding="utf-8") as fh:
+                data = json.load(fh)
+                messages = data.get("messages", [])
+                print(f"✅ Loaded conversation {room_id} with {len(messages)} messages")
+                return messages
+        except Exception as e:
+            print(f"❌ Failed to load conversation {room_id}: {e}")
+    return []
+
+
+def _list_all_conversations() -> List[dict]:
+    """List all saved conversations with metadata."""
+    conversations = []
+    try:
+        for conv_file in CONVERSATIONS_DIR.glob("*.json"):
+            if conv_file.name.endswith(".tmp"):
+                continue  # Skip temporary files
+            try:
+                with conv_file.open(encoding="utf-8") as fh:
+                    data = json.load(fh)
+                    conversations.append({
+                        "room_id": data.get("room_id"),
+                        "created_at": data.get("created_at"),
+                        "last_updated": data.get("last_updated"),
+                        "message_count": data.get("message_count", 0),
+                        "file_path": str(conv_file)
+                    })
+            except Exception as e:
+                print(f"❌ Failed to read conversation file {conv_file}: {e}")
+    except Exception as e:
+        print(f"❌ Failed to list conversations: {e}")
+    
+    # Sort by last_updated, newest first
+    conversations.sort(key=lambda x: x.get("last_updated", ""), reverse=True)
+    return conversations
 
 
 def _normalise(data: dict) -> dict:
@@ -139,6 +301,14 @@ def _normalise(data: dict) -> dict:
     return data
 
 def _load_templates() -> dict:
+    """Load templates using database manager or file fallback."""
+    if db_manager:
+        try:
+            return db_manager.load_templates()
+        except Exception as e:
+            print(f"❌ Failed to load templates from database manager: {e}")
+    
+    # Fallback to legacy file loading
     if TEMPLATE_FILE.exists():
         with TEMPLATE_FILE.open(encoding="utf-8") as fh:
             data = json.load(fh)
@@ -155,7 +325,7 @@ def _load_templates() -> dict:
     _save_templates(default)
     return default
 
-TEMPLATES: Dict[str, dict] = _load_templates()
+# TEMPLATES will be initialized after database manager setup
 
 # ───────────────────────────────────────────────  Misc helpers
 
@@ -166,15 +336,133 @@ def utc_now() -> str:
 
 def _persist_and_broadcast() -> None:
     """Save TEMPLATES and push the fresh set to all connected wizards."""
+    global TEMPLATES
     _save_templates(TEMPLATES)
     # Broadcast to every connected client (wizard UI filters internally)
     socketio.emit("templates", TEMPLATES)
 
 
 def save(room: str, sender: str, text: str) -> dict:
-    msg = {"sender": sender, "text": text, "timestamp": utc_now()}
+    """
+    Save a message and ensure it's persisted continuously.
+    This function guarantees that every message from the frontend-participant
+    is stored in both in-memory and persistent storage.
+    """
+    timestamp = utc_now()
+    msg = {"sender": sender, "text": text, "timestamp": timestamp}
+    
+    # Add to in-memory storage immediately for real-time display
     rooms.setdefault(room, []).append(msg)
+    
+    # Ensure continuous persistence - try database first, then file fallback
+    persistence_success = False
+    
+    if db_manager:
+        try:
+            # Try PostgreSQL persistence first (Render deployment)
+            saved_msg = db_manager.save_message(room, sender, text, timestamp)
+            if saved_msg:
+                persistence_success = True
+                print(f"💾 Message saved to PostgreSQL: {room} ({sender})")
+        except Exception as e:
+            print(f"❌ PostgreSQL save failed for {room}: {e}")
+    
+    # If PostgreSQL failed or not available, use file fallback
+    if not persistence_success:
+        with _conversation_lock:
+            try:
+                _save_conversation(room, rooms[room])
+                persistence_success = True
+                print(f"💾 Message saved to file: {room} ({sender})")
+            except Exception as e:
+                print(f"❌ File save also failed for {room}: {e}")
+    
+    # Log if all persistence methods failed (critical error)
+    if not persistence_success:
+        print(f"🚨 CRITICAL: Message not persisted for room {room}! Message: {msg}")
+        # Could implement emergency backup here (e.g., append to emergency log)
+    
     return msg
+
+
+def _load_rooms_from_disk() -> None:
+    """
+    Load all existing conversations into memory on startup.
+    Ensures proper sync between persistent storage and in-memory cache.
+    """
+    print("🔄 Loading existing conversations...")
+    
+    if db_manager and db_manager.use_postgres:
+        try:
+            # Load from PostgreSQL (production/Render deployment)
+            conversations = db_manager.list_conversations()
+            loaded_count = 0
+            for conv in conversations:
+                room_id = conv['room_id']
+                messages = db_manager.get_conversation(room_id)
+                if messages:
+                    rooms[room_id] = messages
+                    loaded_count += 1
+                    print(f"✅ Loaded room {room_id} with {len(messages)} messages from PostgreSQL")
+            
+            print(f"🔄 Loaded {loaded_count} conversations from PostgreSQL database")
+            
+            # Also check for any orphaned file conversations and migrate them
+            await_migration_count = 0
+            try:
+                for conv_file in CONVERSATIONS_DIR.glob("*.json"):
+                    if conv_file.name.endswith(".tmp"):
+                        continue
+                    
+                    room_id = conv_file.stem
+                    if room_id not in rooms:  # Not in PostgreSQL yet
+                        file_messages = _load_conversation(room_id)
+                        if file_messages:
+                            # Migrate to PostgreSQL
+                            for msg in file_messages:
+                                try:
+                                    db_manager.save_message(
+                                        room_id, 
+                                        msg["sender"], 
+                                        msg["text"], 
+                                        msg["timestamp"]
+                                    )
+                                except Exception as e:
+                                    print(f"⚠️ Failed to migrate message for {room_id}: {e}")
+                            
+                            rooms[room_id] = file_messages
+                            await_migration_count += 1
+                            print(f"🔄 Migrated room {room_id} from file to PostgreSQL")
+                
+                if await_migration_count > 0:
+                    print(f"✅ Migrated {await_migration_count} conversations to PostgreSQL")
+                    
+            except Exception as e:
+                print(f"⚠️ Migration check failed: {e}")
+            
+            return
+            
+        except Exception as e:
+            print(f"❌ Failed to load from PostgreSQL: {e}")
+            print("📁 Falling back to file-based loading...")
+    
+    # Fallback to file-based loading (development or database unavailable)
+    try:
+        loaded_count = 0
+        for conv_file in CONVERSATIONS_DIR.glob("*.json"):
+            if conv_file.name.endswith(".tmp"):
+                continue  # Skip temporary files
+                
+            room_id = conv_file.stem  # filename without extension
+            messages = _load_conversation(room_id)
+            if messages:
+                rooms[room_id] = messages
+                loaded_count += 1
+                print(f"✅ Loaded room {room_id} with {len(messages)} messages from file")
+        
+        print(f"🔄 Loaded {loaded_count} conversations from files")
+    except Exception as e:
+        print(f"❌ Failed to load conversations from disk: {e}")
 
 
 def _stream_wizard_message(room: str, text: str) -> None:
@@ -193,13 +481,40 @@ def _stream_wizard_message(room: str, text: str) -> None:
 @app.post("/api/new_room")
 def new_room():
     room_id = uuid.uuid4().hex[:8]
+    
+    # Ensure the room ID is unique (check both memory and disk)
+    while room_id in rooms or (CONVERSATIONS_DIR / f"{room_id}.json").exists():
+        room_id = uuid.uuid4().hex[:8]
+    
     rooms[room_id] = []
+    print(f"✅ Created new room: {room_id}")
     return jsonify({"room": room_id})
 
 
 @app.route("/health")
 def health_check():
-    """Health check endpoint for deployment verification"""
+    """Health check endpoint for deployment verification and database status"""
+    # Get conversation stats
+    total_conversations = len(rooms)
+    total_saved_conversations = len(list(CONVERSATIONS_DIR.glob("*.json")))
+    
+    # Database status
+    db_status = {
+        "available": db_manager is not None,
+        "using_postgres": db_manager.use_postgres if db_manager else False,
+        "database_url_configured": bool(os.environ.get('DATABASE_URL')),
+    }
+    
+    if db_manager and db_manager.use_postgres:
+        try:
+            # Test database connectivity
+            db_conversations = db_manager.list_conversations()
+            db_status["postgres_healthy"] = True
+            db_status["postgres_conversations"] = len(db_conversations)
+        except Exception as e:
+            db_status["postgres_healthy"] = False
+            db_status["postgres_error"] = str(e)
+    
     return jsonify({
         "status": "healthy",
         "timestamp": utc_now(),
@@ -207,7 +522,14 @@ def health_check():
         "static_dir_exists": STATIC_DIR.exists(),
         "participant_dir_exists": PARTICIPANT_DIR.exists(),
         "wizard_dir_exists": WIZARD_DIR.exists(),
-        "assets_dir_exists": ASSETS_DIR.exists()
+        "assets_dir_exists": ASSETS_DIR.exists(),
+        "data_dir": str(DATA_DIR),
+        "data_dir_exists": DATA_DIR.exists(),
+        "conversations_dir_exists": CONVERSATIONS_DIR.exists(),
+        "active_conversations": total_conversations,
+        "saved_conversations": total_saved_conversations,
+        "persistent_storage": DATA_DIR.exists() and CONVERSATIONS_DIR.exists(),
+        "database": db_status
     })
 
 
@@ -343,15 +665,102 @@ def stop_bot(room_id: str):
     return jsonify({"status": "success", "message": response_message})
 
 
+# ───────────────────────────────────────────────  Conversation Management API
+
+@app.get("/api/conversations")
+def list_conversations():
+    """List all saved conversations with metadata."""
+    conversations = _list_all_conversations()
+    return jsonify({
+        "conversations": conversations,
+        "total_count": len(conversations)
+    })
+
+
+@app.get("/api/conversations/<room_id>")
+def get_conversation(room_id: str):
+    """Get full conversation history for a specific room."""
+    messages = _load_conversation(room_id)
+    if not messages:
+        return jsonify({"error": "Conversation not found"}), 404
+    
+    return jsonify({
+        "room_id": room_id,
+        "message_count": len(messages),
+        "messages": messages
+    })
+
+
+@app.get("/api/conversations/<room_id>/export")
+def export_conversation(room_id: str):
+    """Export conversation as downloadable JSON file."""
+    messages = _load_conversation(room_id)
+    if not messages:
+        return jsonify({"error": "Conversation not found"}), 404
+    
+    conversation_data = {
+        "room_id": room_id,
+        "exported_at": utc_now(),
+        "message_count": len(messages),
+        "messages": messages
+    }
+    
+    from flask import make_response
+    response = make_response(json.dumps(conversation_data, indent=2, ensure_ascii=False))
+    response.headers['Content-Type'] = 'application/json'
+    response.headers['Content-Disposition'] = f'attachment; filename=conversation_{room_id}.json'
+    return response
+
+
+@app.delete("/api/conversations/<room_id>")
+def delete_conversation(room_id: str):
+    """Delete a conversation from persistent storage."""
+    conversation_file = CONVERSATIONS_DIR / f"{room_id}.json"
+    
+    if not conversation_file.exists():
+        return jsonify({"error": "Conversation not found"}), 404
+    
+    try:
+        conversation_file.unlink()
+        # Also remove from memory if present
+        if room_id in rooms:
+            del rooms[room_id]
+        
+        return jsonify({"status": "deleted", "room_id": room_id})
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete conversation: {e}"}), 500
+
+
+@app.get("/api/conversations/stats")
+def conversation_stats():
+    """Get statistics about stored conversations."""
+    conversations = _list_all_conversations()
+    
+    total_messages = sum(conv.get("message_count", 0) for conv in conversations)
+    
+    stats = {
+        "total_conversations": len(conversations),
+        "total_messages": total_messages,
+        "average_messages_per_conversation": total_messages / len(conversations) if conversations else 0,
+        "data_directory": str(DATA_DIR),
+        "conversations_directory": str(CONVERSATIONS_DIR),
+        "storage_available": DATA_DIR.exists(),
+    }
+    
+    return jsonify(stats)
+
+
 @app.get("/api/templates")
 def list_templates():
     """Return the currently active template dictionary."""
+    global TEMPLATES
     return jsonify(TEMPLATES)
 
 
 @app.post("/api/templates")
 def create_template():
     """Add a new template:  {key, value}  in JSON body."""
+    global TEMPLATES
     payload = request.get_json(silent=True) or {}
     key, value = payload.get("key"), payload.get("value")
     if not key or not value:
@@ -460,14 +869,41 @@ def on_join(data):
     join_room(room)
     print(f"{kind} joined {room}")
     
-    # Send existing message history to the joining user with room context
+    # Ensure complete conversation history is available
+    # Load from persistent storage if not in memory
+    if room not in rooms or not rooms[room]:
+        if db_manager:
+            try:
+                messages = db_manager.get_conversation(room)
+                if messages:
+                    rooms[room] = messages
+                    print(f"🔄 Loaded conversation {room} from database for joining {kind}")
+            except Exception as e:
+                print(f"❌ Failed to load conversation from database: {e}")
+                # Try file fallback
+                messages = _load_conversation(room)
+                if messages:
+                    rooms[room] = messages
+                    print(f"🔄 Loaded conversation {room} from file for joining {kind}")
+        else:
+            # File-only mode
+            messages = _load_conversation(room)
+            if messages:
+                rooms[room] = messages
+                print(f"🔄 Loaded conversation {room} from file for joining {kind}")
+    
+    # Send complete message history to the joining user
     if room in rooms and rooms[room]:
+        print(f"📤 Sending {len(rooms[room])} messages to {kind} in {room}")
         for msg in rooms[room]:
             msg_with_room = {**msg, "room": room}
             emit("new_message", msg_with_room)
+    else:
+        print(f"📭 No message history found for room {room}")
     
     if kind == "wizard":
         # Send templates to wizard
+        global TEMPLATES
         emit("templates", TEMPLATES)
         
         # Send bot status to wizard
@@ -485,7 +921,7 @@ def on_join(data):
                 "active": False,
                 "available": False,
                 "progress": "Bot service unavailable"
-            })   # unchanged
+            })
 
 
 @socketio.on("leave")
@@ -552,8 +988,33 @@ def on_wizard_response(data):
     emit("new_message", msg)
 
     # 2) send final full msg to participant immediately (no streaming for now)
-    emit("new_message", msg, to=room, include_self=False)
+# ───────────────────────────────────────────────  Initialization
 
+# Import bot manager with error handling
+try:
+    from .bot_integration import bot_manager
+    BOT_AVAILABLE = True
+    print("✅ Bot integration imported successfully")
+except ImportError as e:
+    print(f"⚠️ Bot integration not available with relative import: {e}")
+    try:
+        from bot_integration import bot_manager
+        BOT_AVAILABLE = True
+        print("✅ Bot integration imported successfully (direct import)")
+    except ImportError as e2:
+        print(f"⚠️ Bot integration not available: {e2}")
+        import traceback
+        traceback.print_exc()
+        bot_manager = None
+        BOT_AVAILABLE = False
+
+# Initialize templates and load conversations after all functions are defined
+TEMPLATES = _load_templates()
+print(f"✅ Templates loaded: {len(TEMPLATES)} categories")
+
+# Load existing conversations from persistent storage on startup
+_load_rooms_from_disk()
+print(f"🔄 Server initialization complete")
 
 # ───────────────────────────────────────────────  Main
 

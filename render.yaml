@@ -1,0 +1,48 @@
+# render.yaml - Render service configuration
+# Place this file in the root of your repository for automatic deployment
+
+services:
+  - type: web
+    name: webwoz-chat
+    env: python
+    plan: starter  # Upgrade to standard for persistent disk
+    buildCommand: |
+      # Install Python dependencies
+      pip install -r backend/requirements.txt
+      # Build React frontends
+      cd frontend-participant && npm install && npm run build
+      cd ../frontend-wizard && npm install && npm run build
+      # Copy static assets for production
+      mkdir -p backend/static/participant backend/static/wizard backend/static/static
+      cp -r frontend-participant/build/* backend/static/participant/
+      cp -r frontend-wizard/build/* backend/static/wizard/
+      # Handle separated bundles (if PUBLIC_URL is used)
+      if [ -d frontend-participant/build/static ]; then
+        cp -r frontend-participant/build/static/* backend/static/static/p/
+      fi
+      if [ -d frontend-wizard/build/static ]; then
+        cp -r frontend-wizard/build/static/* backend/static/static/w/
+      fi
+    startCommand: |
+      # Run production verification
+      ./verify_production.sh
+      # Start the application
+      gunicorn -k eventlet -w 1 -b 0.0.0.0:10000 backend.app:app
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /opt/render/project/src/data
+      - key: SECRET_KEY
+        generateValue: true  # Render will generate a secure secret
+      - key: RENDER_EXTERNAL_URL
+        fromService:
+          type: web
+          name: webwoz-chat
+          property: host
+
+# Optional: Add persistent disk for large studies
+# disks:
+#   - name: webwoz-data
+#     mountPath: /opt/render/project/src/data
+#     sizeGB: 10
