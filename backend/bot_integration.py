@@ -16,6 +16,9 @@ ACCIDENT_REPORT_DIR = BACKEND_DIR / "accident_report"
 # Add accident_report directory to path
 sys.path.insert(0, str(ACCIDENT_REPORT_DIR))
 
+# Also try adding the backend directory to the path for Docker compatibility
+sys.path.insert(0, str(BACKEND_DIR))
+
 try:
     # Try direct imports from rule_based directory
     from rule_based.validator import validate_answer
@@ -24,13 +27,31 @@ try:
     BOT_IMPORTS_SUCCESSFUL = True
     print("✅ Bot components imported successfully")
 except ImportError as e:
-    # Fallback if imports fail
-    print(f"Warning: Could not import bot components: {e}")
-    print("Bot functionality will be limited.")
-    FormWorkflow = None
-    validate_answer = None
-    FormState = None
-    BOT_IMPORTS_SUCCESSFUL = False
+    print(f"Warning: Could not import bot components from rule_based: {e}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Python path: {sys.path}")
+    print(f"ACCIDENT_REPORT_DIR: {ACCIDENT_REPORT_DIR}")
+    print(f"ACCIDENT_REPORT_DIR exists: {ACCIDENT_REPORT_DIR.exists()}")
+    
+    if ACCIDENT_REPORT_DIR.exists():
+        rule_based_dir = ACCIDENT_REPORT_DIR / "rule_based"
+        print(f"rule_based dir exists: {rule_based_dir.exists()}")
+        if rule_based_dir.exists():
+            print(f"rule_based contents: {list(rule_based_dir.iterdir())}")
+    
+    # Try alternate import paths for Docker environment
+    try:
+        from backend.accident_report.rule_based.validator import validate_answer
+        from backend.accident_report.rule_based.bot_naive import FormState, FormWorkflow
+        BOT_IMPORTS_SUCCESSFUL = True
+        print("✅ Bot components imported successfully (Docker path)")
+    except ImportError as e2:
+        print(f"Warning: Could not import bot components from backend path: {e2}")
+        print("Bot functionality will be limited.")
+        FormWorkflow = None
+        validate_answer = None
+        FormState = None
+        BOT_IMPORTS_SUCCESSFUL = False
 
 
 class WebBotSession:

@@ -28,12 +28,21 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 
 # Import bot manager with error handling
 try:
-    from bot_integration import bot_manager
+    from .bot_integration import bot_manager
     BOT_AVAILABLE = True
+    print("✅ Bot integration imported successfully")
 except ImportError as e:
-    print(f"⚠️ Bot integration not available: {e}")
-    bot_manager = None
-    BOT_AVAILABLE = False
+    print(f"⚠️ Bot integration not available with relative import: {e}")
+    try:
+        from bot_integration import bot_manager
+        BOT_AVAILABLE = True
+        print("✅ Bot integration imported successfully (direct import)")
+    except ImportError as e2:
+        print(f"⚠️ Bot integration not available: {e2}")
+        import traceback
+        traceback.print_exc()
+        bot_manager = None
+        BOT_AVAILABLE = False
 
 # ───────────────────────────────────────────────  Server & paths
 
@@ -42,6 +51,18 @@ STATIC_DIR    = BASE_DIR / "static"
 PARTICIPANT_DIR = STATIC_DIR / "participant"
 WIZARD_DIR      = STATIC_DIR / "wizard"
 ASSETS_DIR      = STATIC_DIR / "static"         # merged hashed JS / CSS
+
+# Debug: Print directory structure for troubleshooting
+print(f"🔍 BASE_DIR: {BASE_DIR}")
+print(f"🔍 STATIC_DIR exists: {STATIC_DIR.exists()}")
+print(f"🔍 PARTICIPANT_DIR exists: {PARTICIPANT_DIR.exists()}")
+print(f"🔍 WIZARD_DIR exists: {WIZARD_DIR.exists()}")
+print(f"🔍 ASSETS_DIR exists: {ASSETS_DIR.exists()}")
+
+if STATIC_DIR.exists():
+    print(f"🔍 Contents of STATIC_DIR: {list(STATIC_DIR.iterdir())}")
+else:
+    print("⚠️ STATIC_DIR does not exist!")
 
 # Template persistence - use /data if available (Render persistent disk), fallback to local
 TEMPLATE_DIR = Path(os.environ.get("TEMPLATE_DIR", str(BASE_DIR)))
@@ -64,16 +85,27 @@ app      = Flask(__name__, static_folder=None)  # we serve manually
 app.config["SECRET_KEY"] = secret
 
 # CORS configuration - open for development, locked down for production
-if os.environ.get("NODE_ENV") == "production":
+render_url = os.environ.get("RENDER_EXTERNAL_URL")
+if render_url or os.environ.get("NODE_ENV") == "production":
     # Production: lock down to specific origins
-    allowed_origins = [
-        os.environ.get("RENDER_EXTERNAL_URL", "https://your-app.onrender.com"),
+    allowed_origins = []
+    
+    if render_url:
+        allowed_origins.append(render_url)
+        print(f"🔍 Using RENDER_EXTERNAL_URL: {render_url}")
+    
+    # Add the known Render URL as fallback
+    allowed_origins.extend([
+        "https://wozchat.onrender.com",
         "https://your-app.onrender.com"  # fallback
-    ]
+    ])
+    
+    print(f"🔍 Production CORS origins: {allowed_origins}")
     CORS(app, resources={r"/*": {"origins": allowed_origins}})
     socketio = SocketIO(app, cors_allowed_origins=allowed_origins)
 else:
     # Development: allow localhost
+    print("🔍 Development mode - allowing all origins")
     CORS(app, resources={r"/*": {"origins": "*"}})
     socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -165,6 +197,20 @@ def new_room():
     return jsonify({"room": room_id})
 
 
+@app.route("/health")
+def health_check():
+    """Health check endpoint for deployment verification"""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": utc_now(),
+        "bot_available": BOT_AVAILABLE,
+        "static_dir_exists": STATIC_DIR.exists(),
+        "participant_dir_exists": PARTICIPANT_DIR.exists(),
+        "wizard_dir_exists": WIZARD_DIR.exists(),
+        "assets_dir_exists": ASSETS_DIR.exists()
+    })
+
+
 @app.route("/")
 def root():
     """Redirect root URL to wizard interface"""
@@ -174,11 +220,15 @@ def root():
 @app.route("/wizard")
 @app.route("/wizard/<room_id>")
 def wizard_app(room_id: str | None = None):
+    if not WIZARD_DIR.exists():
+        return jsonify({"error": "Wizard app not available. Static files missing."}), 404
     return send_from_directory(WIZARD_DIR, "index.html")
 
 
 @app.route("/chat/<room_id>")
 def participant_app(room_id: str):
+    if not PARTICIPANT_DIR.exists():
+        return jsonify({"error": "Participant app not available. Static files missing."}), 404
     return send_from_directory(PARTICIPANT_DIR, "index.html")
 
 

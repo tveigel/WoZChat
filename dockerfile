@@ -30,5 +30,9 @@ COPY --from=builder /src/frontend-wizard/build/static     /app/backend/static/st
 
 EXPOSE 10000
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Change working directory to /app so imports work correctly
+WORKDIR /app
 
 CMD ["gunicorn", "-k", "eventlet", "-w", "1", "-b", "0.0.0.0:10000", "backend.app:app"]
