@@ -1,0 +1,113 @@
+{
+  "room_id": "1094a813",
+  "created_at": "2025-08-13T12:08:07+00:00",
+  "last_updated": "2025-08-13T12:18:12+00:00",
+  "message_count": 21,
+  "messages": [
+    {
+      "sender": "bot",
+      "text": "🤖 **Accident Report Bot Activated**\n\nPlease provide a brief description of the accident.\n*(Please provide a detailed response)*",
+      "timestamp": "2025-08-13T12:08:07+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "something happened",
+      "timestamp": "2025-08-13T12:08:16+00:00"
+    },
+    {
+      "sender": "bot",
+      "text": "{\"sender\": \"bot\", \"text\": \"\\ud83d\\udccb Question 2/17\\n----------------------------------------\\n\\n\\u2753 What is the date of the accident?\\n\\n\\ud83d\\udca1 Select or enter date in YYYY-MM-DD format\\n\\nPlease type your answer below:\", \"timestamp\": null, \"ui_component\": {\"type\": \"text_input\", \"question_id\": \"date_of_accident\", \"question_text\": \"What is the date of the accident?\", \"input_type\": \"date\", \"placeholder\": \"YYYY-MM-DD\", \"hint\": \"Select or enter date in YYYY-MM-DD format\"}, \"progress\": {\"current\": 2, \"total\": 17}}",
+      "timestamp": "2025-08-13T12:08:17+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "yesterday",
+      "timestamp": "2025-08-13T12:08:29+00:00"
+    },
+    {
+      "sender": "bot",
+      "text": "{\"sender\": \"bot\", \"text\": \"\\ud83d\\udccb Question 2/17\\n----------------------------------------\\n\\n\\u274c Invalid input: Unknown string format: yesterday. Please try again.\\nLet me ask that again...\\n\\n\\u2753 What is the date of the accident?\\n\\n\\ud83d\\udca1 Select or enter date in YYYY-MM-DD format\\n\\nPlease type your answer below:\", \"timestamp\": null, \"ui_component\": {\"type\": \"text_input\", \"question_id\": \"date_of_accident\", \"question_text\": \"What is the date of the accident?\", \"input_type\": \"date\", \"placeholder\": \"YYYY-MM-DD\", \"hint\": \"Select or enter date in YYYY-MM-DD format\"}, \"progress\": {\"current\": 2, \"total\": 17}}",
+      "timestamp": "2025-08-13T12:08:29+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "2.11.1999",
+      "timestamp": "2025-08-13T12:08:52+00:00"
+    },
+    {
+      "sender": "bot",
+      "text": "{\"sender\": \"bot\", \"text\": \"\\ud83d\\udccb Question 3/17\\n----------------------------------------\\n\\n\\u2753 What time did the accident occur?\\n\\n\\ud83d\\udca1 Select or enter time in HH:MM format\\n\\nPlease type your answer below:\", \"timestamp\": null, \"ui_component\": {\"type\": \"text_input\", \"question_id\": \"time_of_accident\", \"question_text\": \"What time did the accident occur?\", \"input_type\": \"time\", \"placeholder\": \"HH:MM\", \"hint\": \"Select or enter time in HH:MM format\"}, \"progress\": {\"current\": 3, \"total\": 17}}",
+      "timestamp": "2025-08-13T12:08:52+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "2pm",
+      "timestamp": "2025-08-13T12:08:59+00:00"
+    },
+    {
+      "sender": "bot",
+      "text": "{\"sender\": \"bot\", \"text\": \"\\ud83d\\udccb Question 4/17\\n----------------------------------------\\n\\n\\u2753 Where did the accident occur? (Please provide street/route, city/town, and any landmark or distance from junction)\\n\\n\\ud83d\\udca1 Please provide your response\\n\\nPlease type your answer below:\", \"timestamp\": null, \"ui_component\": {\"type\": \"text_input\", \"question_id\": \"location_of_accident\", \"question_text\": \"Where did the accident occur? (Please provide street/route, city/town, and any landmark or distance from junction)\", \"input_type\": \"text\", \"placeholder\": \"Enter your answer...\", \"hint\": \"Please provide your response\"}, \"progress\": {\"current\": 4, \"total\": 17}}",
+      "timestamp": "2025-08-13T12:08:59+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "in mainz",
+      "timestamp": "2025-08-13T12:09:20+00:00"
+    },
+    {
+      "sender": "bot",
+      "text": "{\"sender\": \"bot\", \"text\": \"\\ud83d\\udccb Question 5/17\\n----------------------------------------\\n\\n\\u2753 What was the road surface condition at the time of the accident?\\n\\nYou can click one option below, or type your answer:\\n\\nOptions:\\n  1. Dry\\n  2. Wet\\n  3. Snow / Ice\\n  4. Debris\\n  5. Other\\n\\n\\ud83d\\udca1 You can also specify 'Other' with custom details\", \"timestamp\": null, \"ui_component\": {\"type\": \"clickable_choice\", \"question_id\": \"road_surface_condition\", \"question_text\": \"What was the road surface condition at the time of the accident?\", \"options\": [\"Dry\", \"Wet\", \"Snow / Ice\", \"Debris\", \"Other\"], \"allow_multiple\": false, \"allow_other\": true, \"instructions\": \"Click one option below: (Select 'Other' and specify if needed)\"}, \"progress\": {\"current\": 5, \"total\": 17}}",
+      "timestamp": "2025-08-13T12:09:20+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "{\"type\":\"choice_selection\",\"selected_options\":[\"Dry\"],\"other_text\":\"\"}",
+      "timestamp": "2025-08-13T12:09:31+00:00"
+    },
+    {
+      "sender": "bot",
+      "text": "{\"sender\": \"bot\", \"text\": \"\\ud83d\\udccb Question 6/17\\n----------------------------------------\\n\\n\\u2753 What was the weather at the time of the accident?\\n\\nYou can click one option below, or type your answer:\\n\\nOptions:\\n  1. Clear\\n  2. Rain\\n  3. Fog\\n  4. Snow\\n  5. Other\\n\\n\\ud83d\\udca1 You can also specify 'Other' with custom details\", \"timestamp\": null, \"ui_component\": {\"type\": \"clickable_choice\", \"question_id\": \"weather\", \"question_text\": \"What was the weather at the time of the accident?\", \"options\": [\"Clear\", \"Rain\", \"Fog\", \"Snow\", \"Other\"], \"allow_multiple\": false, \"allow_other\": true, \"instructions\": \"Click one option below: (Select 'Other' and specify if needed)\"}, \"progress\": {\"current\": 6, \"total\": 17}}",
+      "timestamp": "2025-08-13T12:09:31+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "{\"type\":\"choice_selection\",\"selected_options\":[\"Fog\"],\"other_text\":\"\"}",
+      "timestamp": "2025-08-13T12:09:43+00:00"
+    },
+    {
+      "sender": "bot",
+      "text": "{\"sender\": \"bot\", \"text\": \"\\ud83d\\udccb Question 7/17\\n----------------------------------------\\n\\n\\u2753 What was the lighting condition at the time of the accident?\\n\\nYou can click one option below, or type your answer:\\n\\nOptions:\\n  1. Daylight\\n  2. Dusk / Dawn\\n  3. Dark\\u2013Lit\\n  4. Dark\\u2013Unlit\\n\", \"timestamp\": null, \"ui_component\": {\"type\": \"clickable_choice\", \"question_id\": \"lighting\", \"question_text\": \"What was the lighting condition at the time of the accident?\", \"options\": [\"Daylight\", \"Dusk / Dawn\", \"Dark\\u2013Lit\", \"Dark\\u2013Unlit\"], \"allow_multiple\": false, \"allow_other\": false, \"instructions\": \"Click one option below:\"}, \"progress\": {\"current\": 7, \"total\": 17}}",
+      "timestamp": "2025-08-13T12:09:43+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "{\"type\":\"choice_selection\",\"selected_options\":[\"Rain\"],\"other_text\":\"\"}",
+      "timestamp": "2025-08-13T12:09:51+00:00"
+    },
+    {
+      "sender": "bot",
+      "text": "{\"sender\": \"bot\", \"text\": \"\\ud83d\\udccb Question 7/17\\n----------------------------------------\\n\\n\\u274c Invalid input: \\\"Rain\\\" not a valid option. Please try again.\\nLet me ask that again...\\n\\n\\u2753 What was the lighting condition at the time of the accident?\\n\\nYou can click one option below, or type your answer:\\n\\nOptions:\\n  1. Daylight\\n  2. Dusk / Dawn\\n  3. Dark\\u2013Lit\\n  4. Dark\\u2013Unlit\\n\", \"timestamp\": null, \"ui_component\": {\"type\": \"clickable_choice\", \"question_id\": \"lighting\", \"question_text\": \"What was the lighting condition at the time of the accident?\", \"options\": [\"Daylight\", \"Dusk / Dawn\", \"Dark\\u2013Lit\", \"Dark\\u2013Unlit\"], \"allow_multiple\": false, \"allow_other\": false, \"instructions\": \"Click one option below:\"}, \"progress\": {\"current\": 7, \"total\": 17}}",
+      "timestamp": "2025-08-13T12:09:51+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "{\"type\":\"choice_selection\",\"selected_options\":[\"Daylight\"],\"other_text\":\"\"}",
+      "timestamp": "2025-08-13T12:17:42+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "{\"type\":\"choice_selection\",\"selected_options\":[\"Daylight\"],\"other_text\":\"\"}",
+      "timestamp": "2025-08-13T12:17:51+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "{\"type\":\"choice_selection\",\"selected_options\":[\"Dusk / Dawn\"],\"other_text\":\"\"}",
+      "timestamp": "2025-08-13T12:18:00+00:00"
+    },
+    {
+      "sender": "participant",
+      "text": "{\"type\":\"choice_selection\",\"selected_options\":[\"Dark–Unlit\"],\"other_text\":\"\"}",
+      "timestamp": "2025-08-13T12:18:12+00:00"
+    }
+  ]
+}

@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 # Add the backend directory to path  
-BACKEND_DIR = Path(__file__).parent.parent
+BACKEND_DIR = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
 try:

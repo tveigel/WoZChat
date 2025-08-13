@@ -38,7 +38,7 @@ const formatMessage = (text) => {
     }
     
     // Handle progress indicators
-    if (line.includes('Progress:')) {
+    if (line.includes('Progress:') || line.includes('*Progress:')) {
       return (
         <div key={index} className="progress-indicator">
           <span dangerouslySetInnerHTML={{ __html: formattedLine }} />
@@ -64,6 +64,162 @@ const formatMessage = (text) => {
   });
   
   return <div className="formatted-message">{formattedLines}</div>;
+};
+
+// Component for rendering clickable UI elements
+const UIComponent = ({ uiData, onSelect, isCurrentQuestion = true }) => {
+  const [selectedOptions, setSelectedOptions] = useState([]);
+  const [otherText, setOtherText] = useState('');
+  const [showOtherInput, setShowOtherInput] = useState(false);
+
+  if (!uiData || uiData.type !== 'clickable_choice') {
+    return null;
+  }
+
+  const handleOptionClick = (option) => {
+    // Only allow clicks on current questions
+    // Previous questions should not be clickable
+    if (!isCurrentQuestion) {
+      return; // Disabled - users should use "change reply" command
+    }
+
+    // Current question logic (unchanged)
+    if (uiData.allow_multiple) {
+      setSelectedOptions(prev => {
+        if (prev.includes(option)) {
+          return prev.filter(o => o !== option);
+        } else {
+          return [...prev, option];
+        }
+      });
+    } else {
+      setSelectedOptions([option]);
+      if (option.toLowerCase() === 'other' && uiData.allow_other) {
+        setShowOtherInput(true);
+      } else {
+        setShowOtherInput(false);
+        // Auto-submit for single choice (except when "Other" needs specification)
+        setTimeout(() => handleSubmit([option], ''), 100);
+      }
+    }
+  };
+
+  const handleSubmit = (options = selectedOptions, otherValue = otherText) => {
+    if (options.length === 0) return;
+
+    const response = {
+      type: 'choice_selection',
+      selected_options: options,
+      other_text: otherValue
+    };
+    
+    onSelect(JSON.stringify(response));
+  };
+
+  const isSelected = (option) => selectedOptions.includes(option);
+
+  return (
+    <div className={`ui-component ${!isCurrentQuestion ? 'previous-question' : ''}`}>
+      {!isCurrentQuestion && (
+        <div className="edit-indicator">
+          💡 Previous answer - Type "change reply" to edit
+        </div>
+      )}
+      
+      <div className="ui-instructions">
+        {uiData.instructions}
+      </div>
+      
+      <div className="ui-options">
+        {uiData.options.map((option, index) => (
+          <button
+            key={index}
+            className={`ui-option-button ${isSelected(option) ? 'selected' : ''} ${!isCurrentQuestion ? 'previous-question-option' : ''}`}
+            onClick={() => handleOptionClick(option)}
+            disabled={!isCurrentQuestion}
+          >
+            {uiData.allow_multiple && isCurrentQuestion && (
+              <span className="checkbox">
+                {isSelected(option) ? '☑' : '☐'}
+              </span>
+            )}
+            {option}
+          </button>
+        ))}
+      </div>
+
+      {showOtherInput && isCurrentQuestion && (
+        <div className="other-input-container">
+          <input
+            type="text"
+            placeholder="Please specify..."
+            value={otherText}
+            onChange={(e) => setOtherText(e.target.value)}
+            className="other-input"
+            autoFocus
+          />
+        </div>
+      )}
+
+      {isCurrentQuestion && uiData.allow_multiple && selectedOptions.length > 0 && (
+        <div className="ui-submit-container">
+          <button
+            className="ui-submit-button"
+            onClick={() => handleSubmit()}
+          >
+            Submit Selection{selectedOptions.length > 1 ? 's' : ''}
+          </button>
+        </div>
+      )}
+
+      {isCurrentQuestion && showOtherInput && otherText.trim() && (
+        <div className="ui-submit-container">
+          <button
+            className="ui-submit-button"
+            onClick={() => handleSubmit(['Other'], otherText)}
+          >
+            Submit
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Component for rendering complete bot messages with UI
+const BotMessage = ({ message, onUISelect, isLatestBotMessage = false }) => {
+  // Try to parse message text as UI message
+  let uiMessage = null;
+  let displayText = message.text;
+  
+  try {
+    if (typeof message.text === 'string' && message.text.trim().startsWith('{')) {
+      const parsed = JSON.parse(message.text);
+      if (parsed.sender === 'bot' && parsed.ui_component) {
+        uiMessage = parsed;
+        displayText = parsed.text;
+      }
+    }
+  } catch (e) {
+    // Not a UI message, use original text
+  }
+
+  const isCurrentQuestion = uiMessage && uiMessage.ui_component && uiMessage.ui_component.is_current_question && isLatestBotMessage;
+
+  return (
+    <>
+      <div className="message-content">
+        {formatMessage(displayText)}
+      </div>
+      {uiMessage && uiMessage.ui_component && (
+        <UIComponent 
+          uiData={uiMessage.ui_component} 
+          onSelect={onUISelect}
+          isCurrentQuestion={isCurrentQuestion}
+        />
+      )}
+    </>
+  );
 };
 
 // Environment-aware socket connection
@@ -105,6 +261,7 @@ export default function App() {
   const listRef          = useRef(null);
   const autoScrollRef    = useRef(true);     // track if user is at bottom
   const waitingTimerRef  = useRef(null);
+  const inputRef         = useRef(null);
 
   /* ─────────────────────────────── socket life‑cycle */
   useEffect(() => {
@@ -123,6 +280,8 @@ export default function App() {
         ]);
         setWizardTyping(false);
         stopWaitingAnimation();
+        // Refocus input after wizard response
+        setTimeout(() => inputRef.current?.focus(), 100);
       } else if (msg.sender === "bot") {
         // Handle bot messages - add them directly to the message list
         setMessages((prev) => [
@@ -131,6 +290,8 @@ export default function App() {
         ]);
         setWizardTyping(false);
         stopWaitingAnimation();
+        // Refocus input after bot response
+        setTimeout(() => inputRef.current?.focus(), 100);
       }
     });
 
@@ -145,31 +306,46 @@ export default function App() {
         }
         return [...prev, { sender: "wizard_streaming", text: word }];
       });
-      if (is_last) setWizardTyping(false);
+      if (is_last) {
+        setWizardTyping(false);
+        // Refocus input after streaming completes
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     });
 
     return () => socket.emit("leave", { room });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
 
-  /* smart autoscroll: only scroll if the user WAS at bottom */
+  /* smart autoscroll: scroll to bottom for new messages */
   useEffect(() => {
-    if (autoScrollRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Always scroll to bottom when new messages arrive or when waiting/typing states change
+    const shouldScroll = autoScrollRef.current || waiting || wizardTyping;
+    if (shouldScroll) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
     }
-  }, [messages, wizardTyping]);
+  }, [messages, wizardTyping, waiting]);
 
-  /* detect manual scrolls */
+  /* detect manual scrolls and update auto-scroll preference */
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
+    
     const handleScroll = () => {
-      const nearBottom =
-        el.scrollTop + el.clientHeight >= el.scrollHeight - 80;
+      const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 50;
       autoScrollRef.current = nearBottom;
     };
+    
     el.addEventListener("scroll", handleScroll);
     return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  /* Initial focus on input when component mounts */
+  useEffect(() => {
+    inputRef.current?.focus();
   }, []);
 
   /* ─────────────────────────────── participant actions */
@@ -182,6 +358,35 @@ export default function App() {
     socket.emit("participant_typing", { room, text: "" });
     setCurrent("");
     startWaitingAnimation();
+    
+    // Ensure we scroll to bottom after sending
+    autoScrollRef.current = true;
+  };
+
+  const handleUISelection = (selectionData) => {
+    // Display the selection as a participant message
+    let displayText = selectionData;
+    try {
+      const parsed = JSON.parse(selectionData);
+      if (parsed.type === 'choice_selection') {
+        if (parsed.selected_options.length === 1 && !parsed.other_text) {
+          displayText = parsed.selected_options[0];
+        } else if (parsed.selected_options.includes('Other') && parsed.other_text) {
+          displayText = `Other: ${parsed.other_text}`;
+        } else if (parsed.selected_options.length > 1) {
+          displayText = parsed.selected_options.join(', ');
+        }
+      }
+    } catch (e) {
+      // Use original data as fallback
+    }
+
+    setMessages((p) => [...p, { sender: "participant", text: displayText }]);
+    socket.emit("participant_message", { room, text: selectionData });
+    startWaitingAnimation();
+    
+    // Ensure we scroll to bottom after sending
+    autoScrollRef.current = true;
   };
 
   /* ─────────────────────────────── waiting animation helpers */
@@ -199,6 +404,8 @@ export default function App() {
     if (waitingTimerRef.current) clearInterval(waitingTimerRef.current);
     waitingTimerRef.current = null;
     setWaiting(false);
+    // Ensure we scroll to bottom when responses arrive
+    autoScrollRef.current = true;
   };
 
   /* ─────────────────────────────── UI */
@@ -211,24 +418,37 @@ export default function App() {
       
       <div className="chat-window">
         <div ref={listRef} className="messages">
-          {messages.map((m, i) => (
-            <div key={i} className={`message ${m.sender}`}>
-              {(m.sender === "wizard" || m.sender === "wizard_streaming" || m.sender === "bot") && (
-                <span className="wizard-emoji">
-                  {m.sender === "bot" ? "🤖" : "🧙‍♂️"}
-                </span>
-              )}
-              <div className="message-content">
-                {typeof m.text === 'object'
-                  ? <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                      {JSON.stringify(m.text, null, 2)}
-                    </pre>
-                  : (m.sender === "bot" || m.sender === "wizard" || m.sender === "wizard_streaming") 
-                    ? formatMessage(m.text)
-                    : m.text}
+          {messages.map((m, i) => {
+            const isLatestBotMessage = m.sender === 'bot' && 
+              i === messages.findLastIndex(msg => msg.sender === 'bot');
+              
+            return (
+              <div key={i} className={`message ${m.sender}`}>
+                {(m.sender === "wizard" || m.sender === "wizard_streaming" || m.sender === "bot") && (
+                  <span className="wizard-emoji">
+                    {m.sender === "bot" ? "🤖" : "🧙‍♂️"}
+                  </span>
+                )}
+                {m.sender === "bot" ? (
+                  <BotMessage 
+                    message={m} 
+                    onUISelect={handleUISelection}
+                    isLatestBotMessage={isLatestBotMessage}
+                  />
+                ) : (
+                  <div className="message-content">
+                    {typeof m.text === 'object'
+                      ? <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                          {JSON.stringify(m.text, null, 2)}
+                        </pre>
+                      : (m.sender === "wizard" || m.sender === "wizard_streaming") 
+                        ? formatMessage(m.text)
+                        : m.text}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {waiting && !wizardTyping && (
             <div className="waiting-indicator">
@@ -252,6 +472,7 @@ export default function App() {
         {/* sticky input bar */}
         <form className="message-form" onSubmit={send}>
           <input
+            ref={inputRef}
             value={current}
             onChange={(e) => {
               setCurrent(e.target.value);
@@ -260,12 +481,9 @@ export default function App() {
                 text: e.target.value,
               });
             }}
-            disabled={waiting}
-            placeholder={
-              waiting ? "Waiting for reply…" : "Type your message…"
-            }
+            placeholder="Type your message…"
           />
-          <button disabled={waiting}>Send</button>
+          <button disabled={waiting || !current.trim()}>Send</button>
         </form>
       </div>
     </div>

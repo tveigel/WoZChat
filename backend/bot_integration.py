@@ -53,6 +53,25 @@ except ImportError as e:
         FormState = None
         BOT_IMPORTS_SUCCESSFUL = False
 
+# Try to import AI bot components
+try:
+    from accident_report.LLM.rigid_AI_bot import AIBotWorkflow
+    from langchain_core.messages import HumanMessage
+    AI_BOT_IMPORTS_SUCCESSFUL = True
+    print("✅ AI Bot components imported successfully")
+except ImportError as e:
+    print(f"Warning: Could not import AI bot components: {e}")
+    try:
+        from backend.accident_report.LLM.rigid_AI_bot import AIBotWorkflow
+        from langchain_core.messages import HumanMessage
+        AI_BOT_IMPORTS_SUCCESSFUL = True
+        print("✅ AI Bot components imported successfully (Docker path)")
+    except ImportError as e2:
+        print(f"Warning: Could not import AI bot components from backend path: {e2}")
+        AIBotWorkflow = None
+        HumanMessage = None
+        AI_BOT_IMPORTS_SUCCESSFUL = False
+
 
 class WebBotSession:
     """Web-compatible bot session that handles Socket.IO communication."""
@@ -74,7 +93,7 @@ class WebBotSession:
         # Initialize the workflow if possible
         if BOT_IMPORTS_SUCCESSFUL and FormWorkflow and os.path.exists(self.questions_file):
             try:
-                self.workflow = FormWorkflow(self.questions_file, interactive=False)
+                self.workflow = FormWorkflow(self.questions_file, interactive=False, web_ui_enabled=True)
                 self.graph = self.workflow.compile_graph()
                 print(f"✅ Bot initialized for room {room_id}")
             except Exception as e:
@@ -284,11 +303,16 @@ class WebBotSession:
         current_index = self.current_state.get("current_question_index", 0)
         completed_questions = len(self.current_state.get("questions_completed", []))
         
+        # Use the improved progress calculation
+        progress_text = self._calculate_progress()
+        
         return {
             "active": self.is_active,
             "available": self.workflow is not None,
-            "progress": f"{completed_questions}/{total_questions} questions completed",
+            "progress": progress_text,
             "current_question_index": current_index,
+            "completed_main_questions": completed_questions,
+            "total_main_questions": total_questions,
             "form_complete": self.current_state.get("form_complete", False)
         }
     
@@ -419,6 +443,20 @@ class WebBotSession:
         if not self.current_state:
             return None
         
+        # Check if the last message is a UI message (JSON format)
+        if self.current_state.get("messages"):
+            last_message = self.current_state["messages"][-1]
+            if hasattr(last_message, 'content'):
+                try:
+                    # Try to parse as JSON - if successful, it's a UI message
+                    ui_message = json.loads(last_message.content)
+                    if isinstance(ui_message, dict) and ui_message.get("sender") == "bot":
+                        # This is a UI message, return it as-is for the frontend to handle
+                        return last_message.content
+                except (json.JSONDecodeError, AttributeError):
+                    pass  # Not a JSON message, continue with text processing
+        
+        # Fallback to text-based response generation
         response_parts = []
         
         # Check for validation errors
@@ -431,14 +469,58 @@ class WebBotSession:
         if question:
             response_parts.append(question)
         
-        # Show progress
+        # Show enhanced progress tracking
         if self.workflow:
-            total_questions = len(self.workflow.questions)
-            current_index = self.current_state.get("current_question_index", 0)
-            completed = len(self.current_state.get("questions_completed", []))
-            response_parts.append(f"\n*Progress: {completed}/{total_questions} questions completed*")
+            progress_info = self._calculate_progress()
+            response_parts.append(f"\n*{progress_info}*")
         
         return "\n\n".join(response_parts) if response_parts else None
+    
+    def _calculate_progress(self) -> str:
+        """Calculate and format progress information more accurately."""
+        if not self.current_state or not self.workflow:
+            return "Progress: Starting..."
+        
+        total_main_questions = len(self.workflow.questions)
+        completed_main_questions = len(self.current_state.get("questions_completed", []))
+        current_question_index = self.current_state.get("current_question_index", 0)
+        
+        # For basic progress, we use the number of main questions completed
+        # This provides a consistent reference point regardless of retries or sub-questions
+        
+        # Check if we're in a complex question type
+        if self.current_state.get("current_repeat_group_question"):
+            # In a repeat group (like vehicle details)
+            repeat_group = self.current_state["current_repeat_group_question"]
+            instance_index = self.current_state.get("current_repeat_instance", 0)
+            field_index = self.current_state.get("current_repeat_field_index", 0)
+            total_fields = len(repeat_group["fields"])
+            
+            # Calculate progress within this question group
+            sub_progress = f" - Vehicle {instance_index + 1}, detail {field_index + 1}/{total_fields}"
+            return f"Progress: Question {completed_main_questions + 1}/{total_main_questions}{sub_progress}"
+            
+        elif self.current_state.get("current_group_question"):
+            # In a group question (multiple parts)
+            group_question = self.current_state["current_group_question"]
+            field_index = self.current_state.get("current_group_field_index", 0)
+            total_fields = len(group_question["fields"])
+            
+            # Calculate progress within this question group
+            sub_progress = f" - Part {field_index + 1}/{total_fields}"
+            return f"Progress: Question {completed_main_questions + 1}/{total_main_questions}{sub_progress}"
+            
+        else:
+            # Regular question or initial question setup
+            # Use completed questions + 1 for current question (unless we're retrying)
+            current_display = completed_main_questions + 1
+            
+            # If we're on a question that's already completed, it means we're retrying
+            current_question_id = self.current_state.get("current_question_id")
+            if current_question_id in self.current_state.get("questions_completed", []):
+                return f"Progress: Question {completed_main_questions}/{total_main_questions} - Clarifying your answer"
+            
+            return f"Progress: Question {current_display}/{total_main_questions}"
     
     def _generate_completion_message(self) -> str:
         """Generate completion message with form summary."""
@@ -477,24 +559,165 @@ class WebBotSession:
         return "\n".join(message_parts)
 
 
+class WebAIBotSession:
+    """AI-powered bot session that handles ambiguous inputs and smart clarifications."""
+    
+    def __init__(self, room_id: str, questions_file: str = None):
+        self.room_id = room_id
+        self.is_active = False
+        
+        # Default questions file path
+        if questions_file is None:
+            questions_file = ACCIDENT_REPORT_DIR / "questionnaire" / "questions.json"
+        
+        self.questions_file = str(questions_file)
+        
+        # Initialize the AI workflow if possible
+        if AI_BOT_IMPORTS_SUCCESSFUL and AIBotWorkflow and os.path.exists(self.questions_file):
+            try:
+                self.workflow = AIBotWorkflow(self.questions_file, interactive=False)
+                self.graph = self.workflow.compile_graph()
+                self.config = {"configurable": {"thread_id": f"ai_session_{room_id}"}, "recursion_limit": 100}
+                self.current_state = None
+                print(f"✅ AI Bot initialized for room {room_id}")
+            except Exception as e:
+                print(f"❌ Failed to initialize AI bot for room {room_id}: {e}")
+                self.workflow = None
+                self.graph = None
+        else:
+            self.workflow = None
+            self.graph = None
+            if not AI_BOT_IMPORTS_SUCCESSFUL:
+                print(f"⚠️ AI Bot not available for room {room_id} (import failed)")
+            elif not os.path.exists(self.questions_file):
+                print(f"⚠️ AI Bot not available for room {room_id} (questions file not found)")
+            else:
+                print(f"⚠️ AI Bot not available for room {room_id} (missing dependencies)")
+    
+    def start(self) -> Optional[str]:
+        """Start the AI bot session and return the initial message."""
+        if not self.workflow or not self.graph:
+            return "❌ AI Bot is not available. Please check the configuration."
+        
+        try:
+            self.is_active = True
+            # Run until first "ask" step
+            for _ in self.graph.stream({}, config=self.config):
+                pass
+            
+            # Get the current state after asking the first question
+            state = self.graph.get_state(self.config).values
+            self.current_state = state
+            
+            question = state.get("rephrased_question", "Let's begin with your accident report...")
+            return f"🤖 **AI Accident Report Bot Activated**\n\n{question}"
+            
+        except Exception as e:
+            print(f"❌ Error starting AI bot session: {e}")
+            import traceback
+            traceback.print_exc()
+            self.is_active = False
+            return f"❌ Failed to start AI bot: {str(e)}"
+    
+    def process_message(self, user_message: str) -> Optional[str]:
+        """Process a user message and return the bot's response."""
+        if not self.is_active or not self.workflow or not self.graph:
+            return None
+        
+        try:
+            # Get current state and add user message
+            state = self.graph.get_state(self.config).values
+            updated_state = {
+                **state, 
+                "messages": state.get("messages", []) + [HumanMessage(content=user_message)]
+            }
+            
+            # Update state and run interpret + validate
+            self.graph.update_state(self.config, updated_state)
+            for _ in self.graph.stream(None, config=self.config, stream_mode="values"):
+                pass
+            
+            # Get new state
+            new_state = self.graph.get_state(self.config).values
+            self.current_state = new_state
+            
+            if new_state.get("done"):
+                self.is_active = False
+                return "🎉 **Form completed!** Thanks for providing all the accident details. Your data has been saved."
+            
+            # Return either a clarifier or the next question
+            clarifier = new_state.get("clarifying_question")
+            if clarifier:
+                return f"🔎 {clarifier}"
+            
+            question = new_state.get("rephrased_question")
+            if question:
+                return f"❓ {question}"
+            
+            return "Please continue..."
+            
+        except Exception as e:
+            print(f"❌ Error processing message in AI bot: {e}")
+            import traceback
+            traceback.print_exc()
+            return f"❌ Error: {str(e)}. Please try again or restart the bot."
+    
+    def stop(self) -> str:
+        """Stop the AI bot session."""
+        self.is_active = False
+        return "🤖 **AI Bot Deactivated**\n\nThe AI accident report bot has been stopped. You can now chat normally."
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current AI bot session status."""
+        if not self.current_state:
+            return {
+                "active": self.is_active,
+                "available": self.workflow is not None,
+                "progress": "Not started",
+                "bot_type": "ai"
+            }
+        
+        total_questions = len(self.workflow.questions) if self.workflow else 0
+        completed_questions = len(self.current_state.get("questions_completed", []))
+        
+        return {
+            "active": self.is_active,
+            "available": self.workflow is not None,
+            "progress": f"{completed_questions}/{total_questions} questions completed",
+            "form_complete": self.current_state.get("done", False),
+            "bot_type": "ai"
+        }
+
+
 class BotManager:
     """Manages bot sessions for multiple rooms."""
     
     def __init__(self):
-        self.sessions: Dict[str, WebBotSession] = {}
+        self.sessions: Dict[str, Any] = {}
+        self.session_type: Dict[str, str] = {}
     
-    def start_bot(self, room_id: str) -> Optional[str]:
+    def start_bot(self, room_id: str, bot_type: str = "rule") -> Optional[str]:
         """Start a bot session for a room."""
-        if room_id in self.sessions:
+        # Reuse existing if same type & active
+        if room_id in self.sessions and self.session_type.get(room_id) == bot_type:
             if self.sessions[room_id].is_active:
-                return "🤖 Bot is already active in this room."
+                return f"🤖 {bot_type.title()} Bot is already active in this room."
             else:
                 # Restart existing session
                 return self.sessions[room_id].start()
         
-        # Create new session
-        session = WebBotSession(room_id)
+        # Create new session based on type
+        if bot_type == "ai":
+            if not AI_BOT_IMPORTS_SUCCESSFUL:
+                return "❌ AI Bot is not available. Missing dependencies or configuration."
+            session = WebAIBotSession(room_id)
+        else:
+            if not BOT_IMPORTS_SUCCESSFUL:
+                return "❌ Rule-based Bot is not available. Missing dependencies or configuration."
+            session = WebBotSession(room_id)
+        
         self.sessions[room_id] = session
+        self.session_type[room_id] = bot_type
         return session.start()
     
     def stop_bot(self, room_id: str) -> str:
@@ -514,22 +737,37 @@ class BotManager:
     def get_bot_status(self, room_id: str) -> Dict[str, Any]:
         """Get bot status for a room."""
         if room_id in self.sessions:
-            return self.sessions[room_id].get_status()
+            status = self.sessions[room_id].get_status()
+            status["bot_type"] = self.session_type.get(room_id, "unknown")
+            return status
         
-        # Check if bot is available (questions file exists)
+        # Check if bots are available
         questions_file = ACCIDENT_REPORT_DIR / "questionnaire" / "questions.json"
-        available = BOT_IMPORTS_SUCCESSFUL and FormWorkflow is not None and questions_file.exists()
+        rule_available = BOT_IMPORTS_SUCCESSFUL and FormWorkflow is not None and questions_file.exists()
+        ai_available = AI_BOT_IMPORTS_SUCCESSFUL and AIBotWorkflow is not None and questions_file.exists()
         
         return {
             "active": False,
-            "available": available,
-            "progress": "Not started"
+            "available": rule_available or ai_available,
+            "rule_bot_available": rule_available,
+            "ai_bot_available": ai_available,
+            "progress": "Not started",
+            "bot_type": None
         }
     
     def is_bot_active(self, room_id: str) -> bool:
         """Check if bot is active in a room."""
         return (room_id in self.sessions and 
                 self.sessions[room_id].is_active)
+    
+    def get_available_bot_types(self) -> Dict[str, bool]:
+        """Get available bot types."""
+        questions_file = ACCIDENT_REPORT_DIR / "questionnaire" / "questions.json"
+        
+        return {
+            "rule": BOT_IMPORTS_SUCCESSFUL and FormWorkflow is not None and questions_file.exists(),
+            "ai": AI_BOT_IMPORTS_SUCCESSFUL and AIBotWorkflow is not None and questions_file.exists()
+        }
 
 
 # Global bot manager instance

@@ -27,7 +27,7 @@ AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
     timeout=60,
 )"""
 
-llm = llm = init_chat_model("openai:gpt-4.1")
+llm = init_chat_model("openai:gpt-4.1")
 
 
 

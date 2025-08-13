@@ -9,22 +9,28 @@
   ],
   "questions": [
     {
+      "id": "description_of_accident",
+      "question": "Please provide a brief description of the accident.",
+      "type": "multiline_text",
+      "gold_standard": "A detailed description that includes: the number and types of vehicles involved, the location where the accident occurred, the sequence of events leading to the collision, and any immediate consequences. Should be clear, factual, and provide enough detail for someone to understand what happened without being overly verbose."
+    },
+    {
       "id": "date_of_accident",
       "question": "What is the date of the accident?",
       "type": "date",
-      "gold_standard": "2025-06-12"
+      "gold_standard": "Date in YYYY-MM-DD format. Should be the exact date when the accident occurred, not when it was reported."
     },
     {
       "id": "time_of_accident",
       "question": "What time did the accident occur?",
       "type": "time",
-      "gold_standard": "14:35"
+      "gold_standard": "Time in HH:MM format (24-hour). Should be as precise as possible - the actual time of impact, not when emergency services were called or when the report was made."
     },
     {
       "id": "location_of_accident",
       "question": "Where did the accident occur? (Please provide street/route, city/town, and any landmark or distance from junction)",
       "type": "text",
-      "gold_standard": "123 Main St, Springfield, 200m east of Oak Ave"
+      "gold_standard": "Complete address including street name/number, city/town, and specific location details such as distance from intersections, landmarks, or mile markers. Should be precise enough for emergency responders to locate the exact spot."
     },
     {
       "id": "road_surface_condition",
@@ -39,8 +45,8 @@
       ],
       "other_specify": true,
       "gold_standard": {
-        "choice": "Wet",
-        "other": null
+        "choice": "One of the provided options that best describes the actual road surface condition at the time of the accident",
+        "other": "If 'Other' is selected, provide a specific description of the road surface condition (e.g., 'oil spill', 'gravel', 'construction debris')"
       }
     },
     {
@@ -56,8 +62,8 @@
       ],
       "other_specify": true,
       "gold_standard": {
-        "choice": "Rain",
-        "other": null
+        "choice": "One of the provided options that accurately describes the weather conditions at the time of the accident",
+        "other": "If 'Other' is selected, provide a specific description of the weather condition (e.g., 'hail', 'sandstorm', 'heavy wind')"
       }
     },
     {
@@ -70,7 +76,7 @@
         "Dark–Lit",
         "Dark–Unlit"
       ],
-      "gold_standard": "Daylight"
+      "gold_standard": "Select the lighting condition that best describes the visibility at the time of the accident. Consider whether street lights were working if applicable."
     },
     {
       "id": "road_type_and_controls",
@@ -86,13 +92,13 @@
             "Curve",
             "Intersection"
           ],
-          "gold_standard": "Intersection"
+          "gold_standard": "Select based on the actual road geometry at the accident location - whether it was a straight section, curved section, or intersection area."
         },
         {
           "id": "posted_speed_limit",
           "question": "What was the posted speed limit at the accident location (in km/h)?",
           "type": "number",
-          "gold_standard": 50
+          "gold_standard": "The posted speed limit in km/h as displayed on traffic signs at or near the accident location. If no signs are visible, provide the standard speed limit for that type of road in that area."
         },
         {
           "id": "traffic_control",
@@ -103,13 +109,13 @@
             "Signal",
             "None"
           ],
-          "gold_standard": "Signal"
+          "gold_standard": "Select the type of traffic control device that was present and operational at the accident location. Consider whether traffic signals were working properly."
         }
       ],
       "gold_standard": {
-        "location_type": "Intersection",
-        "posted_speed_limit": 50,
-        "traffic_control": "Signal"
+        "location_type": "Accurate description of road geometry at accident location",
+        "posted_speed_limit": "Actual posted speed limit in km/h",
+        "traffic_control": "Type of traffic control present and operational at the time"
       }
     },
     {
@@ -124,8 +130,8 @@
       ],
       "other_specify": true,
       "gold_standard": {
-        "choice": "2",
-        "other": null
+        "choice": "Exact number of vehicles involved in the collision or impact",
+        "other": "If more than 3 vehicles, specify the exact number"
       }
     },
     {
@@ -137,13 +143,13 @@
           "id": "vehicle_type_make_model",
           "question": "What is the type, make, and model of the vehicle?",
           "type": "text",
-          "gold_standard": "Sedan / Toyota / Camry"
+          "gold_standard": "Vehicle type (sedan, SUV, truck, motorcycle, etc.), manufacturer (Toyota, Ford, etc.), and specific model. Be as specific as possible for identification purposes."
         },
         {
           "id": "licence_plate",
           "question": "What is the licence plate of the vehicle?",
           "type": "text",
-          "gold_standard": "ABC-1234"
+          "gold_standard": "Complete license plate number including letters, numbers, and any special characters. Include state/province if different from accident location."
         },
         {
           "id": "pre_crash_manoeuvre",
@@ -156,43 +162,28 @@
             "Overtaking",
             "Other"
           ],
-          "gold_standard": "Turning-Left"
+          "gold_standard": "The specific action the vehicle was performing immediately before the collision occurred. Consider the vehicle's intended direction and movement."
         },
         {
           "id": "approx_speed_kmh",
           "question": "What was the approximate speed of the vehicle at the time of the accident (in km/h)?",
           "type": "number",
-          "gold_standard": 30
+          "gold_standard": "Best estimate of the vehicle's speed at the moment of impact, in km/h. Base this on skid marks, damage patterns, witness accounts, or driver statements."
         },
         {
           "id": "damage_description",
           "question": "Please describe the damage to the vehicle.",
           "type": "text",
-          "gold_standard": "Front-left fender dented"
+          "gold_standard": "Detailed description of all visible damage including specific body parts affected (front/rear bumper, doors, windows, etc.), severity (scratched, dented, crushed), and any fluid leaks or mechanical damage."
         }
       ],
-      "gold_standard": [
-        {
-          "vehicle_type_make_model": "Sedan / Toyota / Camry",
-          "licence_plate": "ABC-1234",
-          "pre_crash_manoeuvre": "Turning-Left",
-          "approx_speed_kmh": 30,
-          "damage_description": "Front-left fender dented"
-        },
-        {
-          "vehicle_type_make_model": "SUV / Honda / CR-V",
-          "licence_plate": "XYZ-5678",
-          "pre_crash_manoeuvre": "Straight",
-          "approx_speed_kmh": 45,
-          "damage_description": "Front bumper cracked"
-        }
-      ]
+      "gold_standard": "Complete information for each vehicle involved in the accident. Each vehicle entry should include all requested details: accurate vehicle identification, license plate, the maneuver being performed before impact, estimated speed, and comprehensive damage description."
     },
     {
       "id": "accident_narrative",
       "question": "Please describe the sequence of events in the accident.",
       "type": "multiline_text",
-      "gold_standard": "Vehicle 1 was turning left at the intersection. Vehicle 2 was proceeding straight through a green light. The vehicles collided in the intersection."
+      "gold_standard": "Chronological account of events leading up to, during, and immediately after the collision. Should include: what each vehicle was doing before the accident, the point of impact, how the collision occurred, and immediate aftermath. Be objective and factual, avoiding speculation about fault or intent."
     },
     {
       "id": "apparent_contributing_factors",
@@ -208,15 +199,15 @@
       ],
       "other_specify": true,
       "gold_standard": {
-        "choices": ["Failed-to-Yield", "Weather/Road"],
-        "other": null
+        "choices": "Select all factors that appear to have contributed to the accident based on observable evidence",
+        "other": "If 'Other' is selected, specify the contributing factor (e.g., 'medical emergency', 'animal in roadway', 'mechanical failure')"
       }
     },
     {
       "id": "any_injuries",
       "question": "Were there any injuries as a result of the accident?",
       "type": "boolean",
-      "gold_standard": true,
+      "gold_standard": "Answer 'true' if any person involved in the accident sustained physical injuries, regardless of severity. Answer 'false' only if absolutely certain no one was hurt.",
       "followup_if_yes": {
         "id": "injury_table",
         "question": "Please provide details of any injuries (role, vehicle #, severity, injury description).",
@@ -225,12 +216,14 @@
           {
             "id": "role",
             "question": "What was the role of the injured person? (Driver, Passenger, Pedestrian)",
-            "type": "text"
+            "type": "text",
+            "gold_standard": "Specify whether the injured person was a driver, passenger (and which seat), pedestrian, cyclist, or other road user"
           },
           {
             "id": "vehicle_number",
             "question": "Which vehicle was the injured person associated with?",
-            "type": "text"
+            "type": "text",
+            "gold_standard": "Specify vehicle number or 'N/A' for pedestrians. Use consistent numbering with the vehicles section"
           },
           {
             "id": "severity",
@@ -239,65 +232,54 @@
             "options": [
               "Minor",
               "Serious"
-            ]
+            ],
+            "gold_standard": "Select 'Minor' for injuries not requiring hospitalization, 'Serious' for injuries requiring medical attention or hospitalization"
           },
           {
             "id": "injury_description",
             "question": "Please describe the injury.",
-            "type": "text"
+            "type": "text",
+            "gold_standard": "Specific description of the injury including body part affected and nature of injury (e.g., 'laceration to forehead', 'suspected broken wrist', 'neck pain')"
           }
         ],
-        "gold_standard": [
-          {
-            "role": "Driver",
-            "vehicle_number": "1",
-            "severity": "Minor",
-            "injury_description": "Bruised left arm"
-          },
-          {
-            "role": "Passenger",
-            "vehicle_number": "2",
-            "severity": "Serious",
-            "injury_description": "Possible concussion"
-          }
-        ]
+        "gold_standard": "Complete details for each injured person including their role, associated vehicle (if applicable), injury severity assessment, and specific description of injuries sustained."
       }
     },
     {
       "id": "any_fatalities",
       "question": "Were there any fatalities as a result of the accident?",
       "type": "boolean",
-      "gold_standard": false
+      "gold_standard": "Answer 'true' if any person died as a direct result of the accident, either at the scene or later due to injuries sustained. Answer 'false' if no deaths occurred."
     },
     {
       "id": "non_vehicle_property_damage",
       "question": "Was there any non-vehicle property damage as a result of the accident?",
       "type": "boolean",
-      "gold_standard": true,
+      "gold_standard": "Answer 'true' if the accident caused damage to property other than the vehicles involved (e.g., buildings, signs, barriers, landscaping). Answer 'false' if damage was limited to vehicles only.",
       "followup_if_yes": {
         "id": "property_damage_description",
         "question": "If yes, please describe the non-vehicle property damage.",
         "type": "text",
-        "gold_standard": "Traffic signal pole knocked over"
+        "gold_standard": "Detailed description of all non-vehicle property damage including what was damaged, extent of damage, and estimated location relative to the accident scene."
       }
     },
     {
       "id": "witnesses_present",
       "question": "Were any witnesses present at the scene of the accident?",
       "type": "boolean",
-      "gold_standard": true,
+      "gold_standard": "Answer 'true' if there were people (other than those directly involved) who observed the accident occur. Answer 'false' if no independent witnesses were present.",
       "followup_if_yes": {
         "id": "witnesses_names_contacts",
         "question": "If yes, please provide the names and contact details of any witnesses.",
         "type": "text",
-        "gold_standard": "Jane Doe, 555-1234"
+        "gold_standard": "Full name and contact information (phone number, address, or email) for each witness. Include brief note of what they observed if relevant."
       }
     },
     {
       "id": "additional_comments",
       "question": "Do you have any additional comments regarding the accident? (optional)",
       "type": "multiline_text",
-      "gold_standard": "Both vehicles towed from the scene. Photos taken."
+      "gold_standard": "Any additional relevant information not covered elsewhere, such as unusual circumstances, emergency response details, towing information, photos taken, or other observations that might be important for understanding the complete picture of the accident."
     }
   ]
 }

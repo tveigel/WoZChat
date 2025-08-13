@@ -619,7 +619,20 @@ def start_bot(room_id: str):
             "message": "Bot service is not available. Please check the server configuration."
         })
     
-    response_message = bot_manager.start_bot(room_id)
+    # Get bot type from query params or request body
+    bot_type = request.args.get("type", "rule")  # default to "rule"
+    if request.is_json:
+        data = request.get_json() or {}
+        bot_type = data.get("type", bot_type)
+    
+    # Validate bot type
+    if bot_type not in ["rule", "ai"]:
+        return jsonify({
+            "status": "error",
+            "message": f"Invalid bot type '{bot_type}'. Must be 'rule' or 'ai'."
+        })
+    
+    response_message = bot_manager.start_bot(room_id, bot_type)
     
     if response_message and bot_manager.is_bot_active(room_id):
         # Send bot activation message to the room
@@ -631,10 +644,11 @@ def start_bot(room_id: str):
         socketio.emit("bot_status_changed", {
             "room": room_id, 
             "active": True,
-            "message": "Bot activated successfully"
+            "bot_type": bot_type,
+            "message": f"{bot_type.title()} bot activated successfully"
         }, to=room_id)
         
-        return jsonify({"status": "success", "message": response_message})
+        return jsonify({"status": "success", "message": response_message, "bot_type": bot_type})
     else:
         return jsonify({"status": "error", "message": response_message or "Failed to start bot"})
 
@@ -663,6 +677,20 @@ def stop_bot(room_id: str):
     }, to=room_id)
     
     return jsonify({"status": "success", "message": response_message})
+
+
+@app.get("/api/bot/types")
+def get_bot_types():
+    """Get available bot types."""
+    if not BOT_AVAILABLE or not bot_manager:
+        return jsonify({
+            "rule": False,
+            "ai": False,
+            "message": "Bot service is not available."
+        })
+    
+    available_types = bot_manager.get_available_bot_types()
+    return jsonify(available_types)
 
 
 # ───────────────────────────────────────────────  Conversation Management API

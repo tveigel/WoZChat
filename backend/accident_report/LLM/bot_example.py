@@ -6,7 +6,7 @@ from typing_extensions import TypedDict
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from accident_report.LLM.llm_config import llm
+from llm_config import llm
 from langgraph.checkpoint.memory import InMemorySaver
 from IPython.display import display, Image
 from langchain_core.messages import HumanMessage, AIMessage
